@@ -128,7 +128,12 @@ func (m *SummaryModel) View() string {
 			var codeInt int
 			n, _ := fmt.Sscanf(code, "%d", &codeInt)
 
-			if n > 0 {
+			// Handle "0" as NetErr here too for consistency if stored as "0"
+			if code == "0" {
+				n = 0 // Force failure path
+			}
+
+			if n > 0 && code != "0" {
 				// Numeric Code
 				if codeInt >= 400 {
 					style = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
@@ -136,8 +141,12 @@ func (m *SummaryModel) View() string {
 					style = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
 				}
 			} else {
-				// Text (e.g. "Timeout")
-				label = code
+				// Text (e.g. "Timeout") or code 0
+				if code == "0" {
+					label = "NetErr/Timeout"
+				} else {
+					label = code
+				}
 				style = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 			}
 
@@ -149,13 +158,19 @@ func (m *SummaryModel) View() string {
 		if len(m.report.Errors) > 0 {
 			s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true).Render("❌ Error Breakdown"))
 			s.WriteString("\n")
+			i := 0
 			for errStr, count := range m.report.Errors {
+				if i >= 10 {
+					s.WriteString(fmt.Sprintf("  ... and %d more error types\n", len(m.report.Errors)-10))
+					break
+				}
+				i++
 				// Shorten error if too long?
 				cleanErr := errStr
-				if len(cleanErr) > 50 {
-					cleanErr = cleanErr[:47] + "..."
+				if len(cleanErr) > 60 {
+					cleanErr = cleanErr[:57] + "..."
 				}
-				s.WriteString(fmt.Sprintf("  %s %s\n", sumStatStyle.Render(fmt.Sprintf("%-30s", cleanErr+":")), sumValueStyle.Render(fmt.Sprintf("%d", count))))
+				s.WriteString(fmt.Sprintf("  %s %s\n", sumStatStyle.Render(fmt.Sprintf("%-40s", cleanErr+":")), sumValueStyle.Render(fmt.Sprintf("%d", count))))
 			}
 		}
 	}

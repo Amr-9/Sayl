@@ -580,3 +580,72 @@ func formatDuration(d time.Duration) string {
 	}
 	return fmt.Sprintf("%.2fs", d.Seconds())
 }
+
+// PrintConsoleReport prints a formatted text summary to stdout
+func PrintConsoleReport(r models.Report) {
+	fmt.Println("\n📊 Test Summary")
+	fmt.Println("===============")
+
+	fmt.Printf("  Totals:\t%d reqs, %s bytes\n", r.TotalRequests, formatBytes(r.TotalBytes))
+	fmt.Printf("  Success:\t%d (%.2f%%)\n", r.SuccessCount, r.SuccessRate)
+	fmt.Printf("  Failures:\t%d\n", r.FailureCount)
+	fmt.Printf("  RPS:\t\t%.2f\n", r.RPS)
+	fmt.Printf("  Duration:\t%s\n", r.Duration)
+	fmt.Println()
+
+	fmt.Println("📉 Latency Distribution")
+	fmt.Printf("  Min: %s\n", formatDuration(r.Min))
+	fmt.Printf("  P50: %s\n", formatDuration(r.P50))
+	fmt.Printf("  P90: %s\n", formatDuration(r.P90))
+	fmt.Printf("  P95: %s\n", formatDuration(r.P95))
+	fmt.Printf("  P99: %s\n", formatDuration(r.P99))
+	fmt.Printf("  Max: %s\n", formatDuration(r.Max))
+	fmt.Println()
+
+	if len(r.StatusCodes) > 0 {
+		fmt.Println("🔢 Status Codes")
+		// Sort codes
+		var codes []string
+		for k := range r.StatusCodes {
+			codes = append(codes, k)
+		}
+		sort.Strings(codes)
+
+		for _, code := range codes {
+			count := r.StatusCodes[code]
+			label := code
+			if code == "0" {
+				label = "NetErr/Timeout"
+			}
+			fmt.Printf("  [%s]:\t%d\n", label, count)
+		}
+		fmt.Println()
+	}
+
+	if len(r.Errors) > 0 {
+		fmt.Println("❌ Errors")
+		i := 0
+		for msg, count := range r.Errors {
+			if i >= 10 {
+				fmt.Printf("  ... and %d more error types\n", len(r.Errors)-10)
+				break
+			}
+			fmt.Printf("  - %s: %d\n", msg, count)
+			i++
+		}
+		fmt.Println()
+	}
+}
+
+func formatBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+}

@@ -103,7 +103,7 @@ func (m *Monitor) Add(res models.Result, isSuccess bool) {
 
 	// Update errors
 	if res.Error != nil {
-		errStr := res.Error.Error()
+		errStr := sanitizeError(res.Error.Error())
 		count, _ := m.errors.LoadOrStore(errStr, 0)
 		m.errors.Store(errStr, count.(int)+1)
 	}

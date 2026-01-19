@@ -86,6 +86,42 @@ func (vp *VariableProcessor) getValue(name string, session map[string]string) st
 		return fmt.Sprintf("%d", time.Now().Unix())
 	case "timestamp_ms":
 		return fmt.Sprintf("%d", time.Now().UnixMilli())
+	case "random_email":
+		return fmt.Sprintf("user%d@example.com", rand.Intn(1000000))
+	case "random_name":
+		names := []string{"Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Heidi"}
+		return names[rand.Intn(len(names))] + fmt.Sprintf(" %d", rand.Intn(1000))
+	case "random_phone":
+		return fmt.Sprintf("+1-555-01%02d", rand.Intn(100))
+	case "random_domain":
+		sub := make([]byte, 4)
+		const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
+		for i := range sub {
+			sub[i] = letters[rand.Intn(len(letters))]
+		}
+		return fmt.Sprintf("%s.example.com", string(sub))
+	case "random_alphanum":
+		const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+		b := make([]byte, 10)
+		for i := range b {
+			b[i] = letters[rand.Intn(len(letters))]
+		}
+		return string(b)
+	}
+
+	// 4. Check for dynamic patterns
+	if strings.HasPrefix(name, "random_digits_") {
+		var length int
+		if _, err := fmt.Sscanf(name, "random_digits_%d", &length); err == nil && length > 0 {
+			if length > 20 { // Cap length to avoid abuse
+				length = 20
+			}
+			digits := make([]byte, length)
+			for i := range digits {
+				digits[i] = byte(rand.Intn(10) + '0')
+			}
+			return string(digits)
+		}
 	}
 
 	// 3. Fallback (keep original or empty?) -> Let's keep a placeholder if not found for debugging,

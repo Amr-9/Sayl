@@ -9,11 +9,15 @@ target:
     Content-Type: "application/json"
     Authorization: "Bearer {{ users.token }}"
   
-  body_json:
-    user_id: "{{ users.id }}"
-    product_id: "{{ products.sku }}"
-    quantity: "{{ random_int }}"
-    shipping_address: "{{ users.address }}"
+  # Using 'body' string allows us to pass numbers as actual JSON numbers (e.g. quantity: 123)
+  # instead of strings "123", which 'body_json' would enforce for variables.
+  body: |
+    {
+      "user_id": "{{ users.id }}",
+      "product_id": "{{ products.sku }}",
+      "quantity": {{ random_int }},
+      "shipping_address": "{{ users.address }}"
+    }
 
 load:
   duration: "20s"

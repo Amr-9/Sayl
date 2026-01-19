@@ -28,12 +28,13 @@ type DataSource struct {
 
 // Step represents a single step in a chained scenario
 type Step struct {
-	Name    string            `json:"name"`
-	URL     string            `json:"url"`
-	Method  string            `json:"method"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Body    string            `json:"body,omitempty"`    // Raw string for templating
-	Extract map[string]string `json:"extract,omitempty"` // Extraction rules: "var_name": "json_path"
+	Name      string            `json:"name"`
+	URL       string            `json:"url"`
+	Method    string            `json:"method"`
+	Headers   map[string]string `json:"headers,omitempty"`
+	Body      string            `json:"body,omitempty"`      // Raw string for templating
+	Extract   map[string]string `json:"extract,omitempty"`   // Extraction rules: "var_name": "json_path"
+	Variables map[string]string `json:"variables,omitempty"` // Variables to pre-calculate and store in session
 }
 
 // Stage represents a load test stage

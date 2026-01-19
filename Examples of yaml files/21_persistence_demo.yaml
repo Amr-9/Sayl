@@ -1,0 +1,67 @@
+# 21_persistence_demo.yaml
+# Demonstration of Variable Persistence ('save') in Scenarios.
+#
+# This feature solves the problem where you need a random value (like an email)
+# to be generated once and then used consistently across multiple steps (e.g. Register -> Login).
+
+load:
+  duration: "5s"
+  rate: 1
+  concurrency: 1
+
+steps:
+  # ---------------------------------------------------------
+  # Step 1: Generate and Save Variables
+  # ---------------------------------------------------------
+  - name: "Registration"
+    url: "https://api.example.com/register"
+    method: "POST"
+    headers:
+      Content-Type: "application/json"
+    
+    # 'save' (or 'variables') allows you to pre-calculate and store values in the session.
+    save:
+      # Generate a random email and store it as 'my_email'
+      my_email: "user_{{random_alphanum}}@example.com"
+      # Generate a password
+      my_password: "supersecret{{random_int}}"
+      
+    # Now use these saved variables in the body
+    body: |
+      {
+        "email": "{{my_email}}",
+        "password": "{{my_password}}",
+        "username": "user_{{random_int}}"
+      }
+      
+    extract:
+      user_id: "data.id"
+
+  # ---------------------------------------------------------
+  # Step 2: Reuse variables in subsequent steps
+  # ---------------------------------------------------------
+  - name: "Login"
+    url: "https://api.example.com/login"
+    method: "POST"
+    headers:
+      Content-Type: "application/json"
+      
+    # Reuse 'my_email' and 'my_password' from Step 1.
+    # They will have the EXACT SAME values as generated in Step 1.
+    body: |
+      {
+        "email": "{{my_email}}",
+        "password": "{{my_password}}"
+      }
+      
+    extract:
+      token: "data.token"
+
+  # ---------------------------------------------------------
+  # Step 3: Authenticated Request
+  # ---------------------------------------------------------
+  - name: "Get Profile"
+    url: "https://api.example.com/profile"
+    method: "GET"
+    headers:
+      Authorization: "Bearer {{token}}"

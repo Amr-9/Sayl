@@ -199,6 +199,11 @@ func (e *Engine) runStages(ctx context.Context, stages []models.Stage, limiter *
 func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[string]string) models.Result {
 	start := time.Now()
 
+	// 0. Pre-process Variables (Save/Persist)
+	for k, v := range step.Variables {
+		session[k] = e.vp.Process(v, session)
+	}
+
 	// 1. Process Templates (URL, Body, Headers)
 	url := e.vp.Process(step.URL, session)
 	method := step.Method

@@ -41,6 +41,12 @@ var (
 	finalValue = lipgloss.NewStyle().
 			Foreground(secondaryColor).
 			Bold(true)
+
+	// Dashboard Specific
+	successText = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF88")) // Bright Green
+	warnText    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFD700")) // Gold
+	errText     = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF4444")) // Red
+	infoText    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF")) // Cyan
 )
 
 // Smaller, cleaner ASCII logo

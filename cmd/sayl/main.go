@@ -98,9 +98,13 @@ func main() {
 	if err := config.Validate(cfg); err == nil {
 		startRunning = true
 	} else {
-		// If validation fails but user provided some flags, might want to warn
-		// But usually we just fall back to TUI setup with prepopulated values
-		// However, TUI SetupModel uses *models.Config so we can pass what we have
+		// If a config file was explicitly provided but is invalid, we should report the error and exit
+		// instead of dropping into the TUI.
+		if configPath != "" {
+			fmt.Printf("Configuration Error: %v\n", err)
+			os.Exit(1)
+		}
+		// Otherwise (no config file), fall back to TUI setup
 	}
 
 	p := tea.NewProgram(tui.NewModel(cfg, startRunning))
@@ -114,6 +118,9 @@ func main() {
 		// Only save if we actually ran a test
 		if finalModel.Report().TotalRequests > 0 {
 			rep := finalModel.Report()
+
+			// Print console summary
+			report.PrintConsoleReport(rep)
 
 			// Save JSON report
 			saveReport("report.json", rep)

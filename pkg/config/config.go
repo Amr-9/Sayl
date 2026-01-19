@@ -36,12 +36,16 @@ type YAMLConfig struct {
 		} `yaml:"stages,omitempty"`
 	} `yaml:"load"`
 	Steps []struct {
-		Name    string            `yaml:"name"`
-		URL     string            `yaml:"url"`
-		Method  string            `yaml:"method"`
-		Headers map[string]string `yaml:"headers,omitempty"`
-		Body    string            `yaml:"body,omitempty"`
-		Extract map[string]string `yaml:"extract,omitempty"`
+		Name      string            `yaml:"name"`
+		URL       string            `yaml:"url"`
+		Method    string            `yaml:"method"`
+		Headers   map[string]string `yaml:"headers,omitempty"`
+		Body      string            `yaml:"body,omitempty"`
+		BodyFile  string            `yaml:"body_file,omitempty"`
+		BodyJSON  interface{}       `yaml:"body_json,omitempty"`
+		Extract   map[string]string `yaml:"extract,omitempty"`
+		Variables map[string]string `yaml:"variables,omitempty"`
+		Save      map[string]string `yaml:"save,omitempty"` // Alias for variables
 	} `yaml:"steps,omitempty"`
 	Data []struct {
 		Name string `yaml:"name"`
@@ -61,6 +65,8 @@ func LoadConfig(path string) (*models.Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
+	fmt.Printf("DEBUG: Loaded %d steps from config\n", len(yamlCfg.Steps))
+
 	cfg := &models.Config{
 		URL:         yamlCfg.Target.URL,
 		Method:      yamlCfg.Target.Method,
@@ -74,13 +80,41 @@ func LoadConfig(path string) (*models.Config, error) {
 	// Handle Steps
 	if len(yamlCfg.Steps) > 0 {
 		for _, s := range yamlCfg.Steps {
+			// Merge Variables and Save into one map
+			vars := make(map[string]string)
+			for k, v := range s.Variables {
+				vars[k] = v
+			}
+			for k, v := range s.Save {
+				vars[k] = v
+			}
+
+			// Handle Step Body (Direct vs File vs JSON)
+			var bodyData []byte
+			if s.BodyFile != "" {
+				b, err := os.ReadFile(s.BodyFile)
+				if err != nil {
+					return nil, fmt.Errorf("failed to read step body file '%s': %w", s.BodyFile, err)
+				}
+				bodyData = b
+			} else if s.Body != "" {
+				bodyData = []byte(s.Body)
+			} else if s.BodyJSON != nil {
+				b, err := json.Marshal(s.BodyJSON)
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal step body_json: %w", err)
+				}
+				bodyData = b
+			}
+
 			cfg.Steps = append(cfg.Steps, models.Step{
-				Name:    s.Name,
-				URL:     s.URL,
-				Method:  s.Method,
-				Headers: s.Headers,
-				Body:    s.Body,
-				Extract: s.Extract,
+				Name:      s.Name,
+				URL:       s.URL,
+				Method:    s.Method,
+				Headers:   s.Headers,
+				Body:      string(bodyData),
+				Extract:   s.Extract,
+				Variables: vars,
 			})
 		}
 	}
@@ -157,26 +191,67 @@ func LoadConfig(path string) (*models.Config, error) {
 
 // Validate checks if the configuration is valid so we can start running immediately.
 func Validate(cfg *models.Config) error {
+	var errors []string
+
+	// Target Validation
 	if cfg.URL == "" && len(cfg.Steps) == 0 {
-		return fmt.Errorf("URL or Steps are required")
+		errors = append(errors, "missing target URL or scenario steps (target.url or steps)")
 	}
-	if cfg.Method == "" && len(cfg.Steps) == 0 {
-		cfg.Method = "GET" // Default
+
+	if cfg.Method == "" {
+		if len(cfg.Steps) == 0 {
+			cfg.Method = "GET" // Default for single target
+		}
+	} else {
+		// specialized validation if needed for method
 	}
-	if cfg.Rate <= 0 && len(cfg.Stages) == 0 {
-		return fmt.Errorf("rate or stages must be defined")
+
+	// Load Profile Validation
+	if len(cfg.Stages) > 0 {
+		// Stages validation
+		for i, stage := range cfg.Stages {
+			if stage.Duration <= 0 {
+				errors = append(errors, fmt.Sprintf("stage %d duration must be > 0", i+1))
+			}
+			if stage.Target < 0 {
+				errors = append(errors, fmt.Sprintf("stage %d target rate must be >= 0", i+1))
+			}
+		}
+	} else {
+		// Fixed rate validation
+		if cfg.Rate <= 0 {
+			errors = append(errors, "rate must be greater than 0 (load.rate)")
+		}
+		if cfg.Duration <= 0 {
+			errors = append(errors, "duration must be greater than 0 (load.duration)")
+		}
 	}
-	if cfg.Duration <= 0 && len(cfg.Stages) == 0 {
-		return fmt.Errorf("duration must be greater than 0")
-	}
+
 	if cfg.Concurrency <= 0 {
-		return fmt.Errorf("concurrency must be greater than 0")
+		errors = append(errors, "concurrency must be greater than 0 (load.concurrency)")
 	}
+
+	// Set default success code if none provided
 	if len(cfg.SuccessCodes) == 0 {
-		// Set default success code if none provided
 		cfg.SuccessCodes = map[int]bool{200: true}
 	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("configuration errors:\n- %s", dumpErrors(errors))
+	}
+
 	return nil
+}
+
+func dumpErrors(errs []string) string {
+	var out string
+	for i, e := range errs {
+		if i > 0 {
+			out += "\n- "
+		}
+		out += e
+	}
+	return out
 }
 
 // SaveConfig saves the current configuration to a YAML file.
