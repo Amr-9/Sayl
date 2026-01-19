@@ -1,0 +1,32 @@
+# 12_multiple_csv_sources.yaml
+# Demonstrates using multiple CSV files to feed data into requests.
+# This allows mixing different datasets, e.g., Users and Products.
+
+target:
+  url: "https://api.example.com/v1/orders"
+  method: "POST"
+  headers:
+    Content-Type: "application/json"
+    Authorization: "Bearer {{ users.token }}"
+  
+  body_json:
+    user_id: "{{ users.id }}"
+    product_id: "{{ products.sku }}"
+    quantity: "{{ random_int }}"
+    shipping_address: "{{ users.address }}"
+
+load:
+  duration: "20s"
+  rate: 10
+  concurrency: 5
+
+# Sayl will pull a row from each CSV for every request.
+# If files have different lengths, they loop independently.
+data:
+  - name: "users"
+    path: "./data/users.csv"
+    # users.csv columns: id, token, address
+    
+  - name: "products"
+    path: "./data/products.csv"
+    # products.csv columns: sku, name, price

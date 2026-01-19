@@ -1,0 +1,32 @@
+# 13_extract_headers.yaml
+# Demonstrates how to extract values from Response Headers in a chained scenario.
+# Common for extracting Session IDs, CSRF tokens, or ETags.
+
+load:
+  duration: "30s"
+  rate: 2
+  concurrency: 2
+
+steps:
+  # Step 1: Initial request that sets a cookie or returns a header
+  - name: "InitSession"
+    url: "https://api.example.com/v1/session"
+    method: "POST"
+    
+    extract:
+      # Syntax: "header:Header-Name"
+      # Extracts the value of the 'Set-Cookie' header into 'session_cookie'
+      session_cookie: "header:Set-Cookie"
+      
+      # Extracts the 'ETag' header into 'etag_val'
+      etag_val: "header:ETag"
+
+  # Step 2: Use the extracted headers
+  - name: "AuthenticatedAction"
+    url: "https://api.example.com/v1/profile"
+    method: "GET"
+    headers:
+      # Use the extracted cookie
+      Cookie: "{{ session_cookie }}"
+      # Use the Etag for conditional requests
+      If-None-Match: "{{ etag_val }}"

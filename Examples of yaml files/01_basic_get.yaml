@@ -1,0 +1,30 @@
+# 01_basic_get.yaml
+# This is a simple configuration for a basic GET request.
+# Use this to verify connectivity and baseline performance.
+
+target:
+  # The target URL for the load test.
+  url: "https://api.example.com/v1/health"
+  
+  # HTTP Method (GET, POST, PUT, DELETE, etc.)
+  # Defaults to GET if not specified.
+  method: "GET"
+
+  # Optional: Timeout for each request.
+  # If the server doesn't respond within this time, the request is marked as a failure.
+  timeout: "2s"
+
+load:
+  # Total duration of the test.
+  duration: "10s"
+  
+  # Rate: Number of requests to send per second (RPS).
+  rate: 10
+  
+  # Concurrency: Number of parallel workers/connections.
+  # This acts as the upper limit of simultaneous requests.
+  concurrency: 5
+  
+  # Success Codes: Which HTTP status codes are considered "successful"?
+  # Use this if you expect 201 Created or 202 Accepted, etc.
+  success_codes: [200]

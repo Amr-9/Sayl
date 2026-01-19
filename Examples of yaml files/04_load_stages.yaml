@@ -1,0 +1,37 @@
+# 04_load_stages.yaml
+# This example demonstrates how to use 'stages' to vary the load over time.
+# This is useful for simulating:
+# - Ramp-up (warming up caches)
+# - Validating auto-scaling rules
+# - Stress testing (spike)
+
+target:
+  url: "https://api.example.com/v1/search?q=test"
+  method: "GET"
+
+load:
+  # When 'stages' is defined, 'duration' and 'rate' in the main block are ignored.
+  # The test will run through the stages sequentially.
+  
+  stages:
+    # Stage 1: Ramp up from 0 to 50 RPS over 30 seconds
+    - duration: "30s"
+      target: 50
+    
+    # Stage 2: Hold steady at 50 RPS for 1 minute
+    - duration: "1m"
+      target: 50
+      
+    # Stage 3: Spike to 200 RPS over 10 seconds (Load Test)
+    - duration: "10s"
+      target: 200
+      
+    # Stage 4: Hold at peak for 20 seconds
+    - duration: "20s"
+      target: 200
+      
+    # Stage 5: Ramp down to 0 over 30 seconds
+    - duration: "30s"
+      target: 0
+
+  concurrency: 50 # Ensure enough concurrency to handle the peak RPS (200)

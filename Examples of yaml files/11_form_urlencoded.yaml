@@ -1,0 +1,22 @@
+# 11_form_urlencoded.yaml
+# Sending "application/x-www-form-urlencoded" data (HTML form style).
+# Use 'body' (string) and manually format the string as key=value&key2=value2.
+# Note: Sayl does not currently automatically URL-encode variables, so allow for simple values.
+
+target:
+  url: "https://api.example.com/v1/login"
+  method: "POST"
+  headers:
+    Content-Type: "application/x-www-form-urlencoded"
+  
+  # Raw string body formatted as query string
+  body: "username={{ users.username }}&password={{ users.password }}&grant_type=password"
+
+load:
+  duration: "15s"
+  rate: 5
+  concurrency: 2
+
+data:
+  - name: "users"
+    path: "./data/credentials.csv"

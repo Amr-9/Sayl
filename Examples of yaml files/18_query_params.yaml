@@ -1,0 +1,24 @@
+# 18_query_params.yaml
+# Demonstrates how to handle query parameters dynamically.
+# Since Sayl doesn't have a specific 'query_params' block, you append them to the URL.
+# This works seamlessly with variable substitution.
+
+target:
+  # Base URL: https://api.example.com/v1/search
+  # Params:
+  #   q: Search term (dynamic)
+  #   page: Page number (dynamic)
+  #   sort: Sort order (static)
+  #   api_key: API Key (static)
+  
+  url: "https://api.example.com/v1/search?q={{ keywords.term }}&page={{ random_int }}&sort=desc&api_key=12345"
+  method: "GET"
+
+load:
+  duration: "45s"
+  rate: 20
+  concurrency: 5
+
+data:
+  - name: "keywords"
+    path: "./data/search_terms.csv"

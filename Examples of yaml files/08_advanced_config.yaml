@@ -1,0 +1,29 @@
+# 08_advanced_config.yaml
+# This example combines many advanced features for fine-grained control.
+
+target:
+  url: "https://api.example.com/v1/stream"
+  method: "GET"
+  
+  # Timeout settings are crucial for defining failure criteria.
+  # If a request takes longer than 2s, it's an error.
+  timeout: "2s"
+  
+  # Connection settings
+  # 'keep_alive': true (default) reuses TCP connections. Set false to force new connection per request (heavy).
+  keep_alive: true
+  
+  # 'insecure': true skips SSL certificate verification (useful for internal/testing envs).
+  insecure: true
+
+load:
+  # Load configuration
+  duration: "1m"
+  rate: 100
+  concurrency: 20
+  
+  # Custom Success Codes
+  # Maybe this API returns 202 Accepted for async processing.
+  success_codes: [200, 202]
+
+# You can also use 'stages' here alongside advanced target settings.

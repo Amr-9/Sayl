@@ -1,0 +1,34 @@
+# 02_post_json.yaml
+# This example demonstrates sending a JSON payload using the 'body_json' field.
+# Sayl will automatically marshal the object to JSON and set the Content-Type header.
+
+target:
+  url: "https://api.example.com/v1/users"
+  method: "POST"
+  
+  headers:
+    # You can add custom headers here.
+    # Note: Content-Type: application/json is added automatically when using body_json,
+    # but you can override or add others like Authorization.
+    Authorization: "Bearer my-secret-token"
+    User-Agent: "Sayl-Load-Tester"
+
+  # body_json allows you to define the JSON structure directly in YAML.
+  # This is easier than writing a raw JSON string.
+  body_json:
+    name: "John Doe"
+    email: "john@example.com"
+    age: 30
+    roles:
+      - "user"
+      - "editor"
+    preferences:
+      newsletter: true
+      theme: "dark"
+
+load:
+  duration: "30s"
+  rate: 50
+  concurrency: 10
+  # We expect 201 Created for a successful creation.
+  success_codes: [200, 201]

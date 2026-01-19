@@ -1,0 +1,21 @@
+{
+    "description": "This is a large payload loaded from a file",
+    "data": [
+        {
+            "id": 1,
+            "value": "item1"
+        },
+        {
+            "id": 2,
+            "value": "item2"
+        },
+        {
+            "id": 3,
+            "value": "item3"
+        }
+    ],
+    "meta": {
+        "generated": true,
+        "source": "file"
+    }
+}

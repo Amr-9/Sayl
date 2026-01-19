@@ -1,0 +1,22 @@
+# 15_delete_resource.yaml
+# Example of a DELETE request.
+# Be careful when running DELETE tests against production or shared environments!
+
+target:
+  url: "https://api.example.com/v1/notifications/{{ notifications.id }}"
+  method: "DELETE"
+  
+  headers:
+    Authorization: "Bearer my-token"
+
+load:
+  duration: "10s"
+  rate: 2
+  concurrency: 2
+  
+  # Expect 204 No Content or 200 OK
+  success_codes: [200, 204]
+
+data:
+  - name: "notifications"
+    path: "./data/trash_ids.csv"

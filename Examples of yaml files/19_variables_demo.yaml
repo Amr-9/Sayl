@@ -1,0 +1,33 @@
+# 19_variables_demo.yaml
+# Demonstration of all built-in dynamic variables.
+# Useful for testing uniqueness constraints or logging features.
+
+target:
+  url: "https://api.example.com/v1/logs"
+  method: "POST"
+  headers:
+    Content-Type: "application/json"
+  
+  body_json:
+    # {{ uuid }} Generates a standard v4 UUID.
+    request_id: "{{ uuid }}"
+    
+    # {{ timestamp }} Unix timestamp (seconds).
+    created_at: "{{ timestamp }}"
+    
+    # {{ timestamp_ms }} Unix timestamp (milliseconds).
+    precise_time: "{{ timestamp_ms }}"
+    
+    # {{ random_int }} Random integer between 0 and 100000.
+    numeric_id: {{ random_int }}  # Note: In YAML this might be parsed as number if unquoted, but template replacement happens on string.
+                                  # Safer to quote if you want string, or rely on JSON unmarshalling.
+                                  # For body_json, it's safer to keep them as strings if the API accepts strings,
+                                  # or if Sayl's replacement logic handles unmarshalling properly (it replaces in stringified JSON).
+    
+    # Combining variables
+    trace_id: "trace-{{ timestamp }}-{{ random_int }}"
+
+load:
+  duration: "10s"
+  rate: 1
+  concurrency: 1

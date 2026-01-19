@@ -1,0 +1,24 @@
+# 03_post_raw_body.yaml
+# This example demonstrates sending a raw string body.
+# This is useful for non-JSON payloads like XML, plain text, or complex JSON that you want to control exactly.
+
+target:
+  url: "https://api.example.com/v1/xml-endpoint"
+  method: "POST"
+  
+  headers:
+    # When using 'body' (string), you MUST manually set the Content-Type
+    Content-Type: "application/xml"
+  
+  # Raw string body.
+  # Using YAML block scalar (|) allows multi-line strings easily.
+  body: |
+    <request>
+      <type>update</type>
+      <data>12345</data>
+    </request>
+
+load:
+  duration: "15s"
+  rate: 20
+  concurrency: 5

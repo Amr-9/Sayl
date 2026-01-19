@@ -1,0 +1,24 @@
+# 16_patch_partial_update.yaml
+# Example of a PATCH request, used for partial updates.
+# Only send the fields that need to change.
+
+target:
+  url: "https://api.example.com/v1/users/{{ users.id }}"
+  method: "PATCH"
+  
+  headers:
+    Content-Type: "application/json"
+    Authorization: "Bearer my-token"
+  
+  # Only updating the 'email' field
+  body_json:
+    email: "new-email-{{ random_int }}@test.com"
+
+load:
+  duration: "30s"
+  rate: 10
+  concurrency: 5
+
+data:
+  - name: "users"
+    path: "./data/users.csv"

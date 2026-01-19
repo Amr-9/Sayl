@@ -1,0 +1,35 @@
+# 05_data_loader.yaml
+# This example shows how to use external data (CSV) and dynamic variables.
+# This prevents caching and simulates real-world usage with different users/inputs.
+
+target:
+  url: "https://api.example.com/v1/users/{{ users.id }}/details?ts={{ timestamp }}"
+  method: "POST"
+  headers:
+    Content-Type: "application/json"
+    X-Request-ID: "{{ uuid }}"
+  
+  # You can use variables in the body as well.
+  body_json:
+    user_id: "{{ users.id }}"
+    email: "{{ users.email }}"
+    action: "login"
+    device_id: "{{ random_int }}"
+
+load:
+  duration: "30s"
+  rate: 10
+  concurrency: 5
+
+# Data sources configuration
+data:
+  # 'name' is the prefix used in variables (e.g., {{ users.id }})
+  - name: "users"
+    # Path to the CSV file. Relative paths are relative to where you run Sayl.
+    path: "./data/users.csv"
+
+# Example CSV content (users.csv):
+# id,email
+# 1001,alice@example.com
+# 1002,bob@example.com
+# 1003,charlie@example.com

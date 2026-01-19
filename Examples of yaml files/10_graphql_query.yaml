@@ -1,0 +1,36 @@
+# 10_graphql_query.yaml
+# GraphQL requests are typically POST requests with a JSON body containing 'query' and 'variables'.
+
+target:
+  url: "https://api.example.com/graphql"
+  method: "POST"
+  headers:
+    Content-Type: "application/json"
+    Authorization: "Bearer my-token"
+
+  # We use 'body_json' to structure the GraphQL payload.
+  # The 'query' field contains the GraphQL query string.
+  # The 'variables' field contains the dynamic variables for the query.
+  body_json:
+    query: |
+      query GetUser($id: ID!) {
+        user(id: $id) {
+          name
+          email
+          posts {
+            title
+          }
+        }
+      }
+    variables:
+      # We can use Sayl variables here
+      id: "{{ users.id }}"
+
+load:
+  duration: "30s"
+  rate: 10
+  concurrency: 5
+
+data:
+  - name: "users"
+    path: "./data/users.csv"

@@ -1,0 +1,39 @@
+# 17_complex_json_body.yaml
+# Demonstrates a deeply nested complex JSON body.
+# This tests the 'body_json' conversion capability for complex structures.
+
+target:
+  url: "https://api.example.com/v1/marketing/campaigns"
+  method: "POST"
+  headers:
+    Content-Type: "application/json"
+  
+  body_json:
+    campaign:
+      name: "Summer Sale {{ uuid }}"
+      budget: 5000
+      active: true
+      targeting:
+        regions:
+          - "US"
+          - "EU"
+        demographics:
+          min_age: 18
+          max_age: 45
+          interests:
+            - "tech"
+            - "gaming"
+      creatives:
+        - type: "image"
+          url: "https://cdn.example.com/img1.jpg"
+          dimensions:
+            width: 1024
+            height: 768
+        - type: "video"
+          url: "https://cdn.example.com/vid1.mp4"
+          duration: 30
+
+load:
+  duration: "10s"
+  rate: 2
+  concurrency: 2

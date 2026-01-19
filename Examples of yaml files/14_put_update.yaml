@@ -1,0 +1,27 @@
+# 14_put_update.yaml
+# Example of a PUT request, typically used to replace a resource entirely.
+
+target:
+  url: "https://api.example.com/v1/articles/{{ articles.id }}"
+  method: "PUT"
+  
+  headers:
+    Content-Type: "application/json"
+    Authorization: "Bearer my-token"
+  
+  # PUT usually requires sending the full resource representation
+  body_json:
+    id: "{{ articles.id }}"
+    title: "Updated Title for {{ articles.id }}"
+    content: "This is the new content of the article..."
+    author_id: 105
+    status: "published"
+
+load:
+  duration: "20s"
+  rate: 5
+  concurrency: 5
+
+data:
+  - name: "articles"
+    path: "./data/articles_to_update.csv"

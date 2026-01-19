@@ -1,0 +1,43 @@
+# 06_scenario_chain.yaml
+# This example demonstrates 'Chained Requests' (Scenarios).
+# Use this when a user flow involves multiple dependent steps (e.g., Login -> Get Token -> Use Token).
+
+# Top-level target config acts as a default/fallback, but 'steps' take precedence.
+load:
+  duration: "1m"
+  rate: 5
+  concurrency: 2
+
+steps:
+  # Step 1: Login to get an access token
+  - name: "Login"
+    url: "https://api.example.com/v1/login"
+    method: "POST"
+    body: '{"username": "admin", "password": "password123"}'
+    
+    # Extract values from the response to use in subsequent steps.
+    extract:
+      # Save the 'token' field from the JSON response into a variable named 'auth_token'
+      auth_token: "token"
+      # Save the 'user.id' field from the JSON response into a variable named 'uid'
+      uid: "user.id"
+      # You can also extract headers using the 'header:' prefix
+      csrf_token: "header:X-CSRF-Token"
+
+  # Step 2: Use the extracted token to fetch user profile
+  - name: "GetProfile"
+    # Use the 'uid' variable extracted in Step 1
+    url: "https://api.example.com/v1/users/{{ uid }}"
+    method: "GET"
+    headers:
+      # Use the 'auth_token' variable extracted in Step 1
+      Authorization: "Bearer {{ auth_token }}"
+      X-CSRF-Token: "{{ csrf_token }}"
+
+  # Step 3: Perform an action
+  - name: "UpdateStatus"
+    url: "https://api.example.com/v1/users/{{ uid }}/status"
+    method: "PUT"
+    headers:
+      Authorization: "Bearer {{ auth_token }}"
+    body: '{"status": "active"}'

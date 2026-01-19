@@ -1,0 +1,271 @@
+package attacker
+
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/Amr-9/sayl/pkg/models"
+	"github.com/tidwall/gjson"
+	"golang.org/x/time/rate"
+)
+
+// Engine implements the load testing logic
+type Engine struct {
+	client *http.Client
+	vp     *VariableProcessor
+}
+
+func NewEngine() *Engine {
+	return &Engine{
+		vp: NewVariableProcessor(),
+	}
+}
+
+// Attack starts the load test
+func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- models.Result) {
+	// Configure client based on config
+	maxConns := cfg.Concurrency * 2
+	if maxConns < 100 {
+		maxConns = 100
+	}
+
+	transport := &http.Transport{
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: cfg.Insecure},
+		MaxIdleConns:        maxConns,
+		MaxIdleConnsPerHost: maxConns,
+		MaxConnsPerHost:     maxConns,
+		IdleConnTimeout:     90 * time.Second,
+		DisableKeepAlives:   !cfg.KeepAlive,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+	}
+
+	e.client = &http.Client{
+		Timeout:   cfg.Timeout,
+		Transport: transport,
+	}
+	if e.client.Timeout == 0 {
+		e.client.Timeout = 30 * time.Second
+	}
+	if transport.ResponseHeaderTimeout == 0 {
+		transport.ResponseHeaderTimeout = e.client.Timeout
+	}
+
+	// Initialize Data Feeders
+	feeders := make(map[string]*CSVFeeder)
+	for _, d := range cfg.Data {
+		f, err := NewCSVFeeder(d.Path)
+		if err != nil {
+			// Report error and exit
+			// Since we can't return an error here easily without changing signature,
+			// we'll print to stderr and send an error result if possible or just return.
+			// Best effort: Log and stop.
+			// Ideally we should probably log this better.
+			// For CLI tool, printing is okay.
+			// We can also send a "system error" result.
+			results <- models.Result{
+				Timestamp: time.Now(),
+				Error:     fmt.Errorf("feeder init error: %v", err),
+			}
+			close(results)
+			return
+		}
+		feeders[d.Name] = f
+	}
+
+	var wg sync.WaitGroup
+
+	// Rate Limiter Setup (simplified for now)
+	var initialLimit rate.Limit
+	if len(cfg.Stages) > 0 {
+		initialLimit = rate.Limit(1) // Start slow if staging
+	} else {
+		initialLimit = rate.Limit(cfg.Rate)
+	}
+	limiter := rate.NewLimiter(initialLimit, 1)
+
+	// Stage Controller
+	if len(cfg.Stages) > 0 {
+		go e.runStages(ctx, cfg.Stages, limiter)
+	}
+
+	// Prepare steps
+	steps := cfg.Steps
+	if len(steps) == 0 {
+		// Create a single step from the main config
+		steps = []models.Step{{
+			Name:    "Main",
+			URL:     cfg.URL,
+			Method:  cfg.Method,
+			Headers: cfg.Headers,
+			Body:    string(cfg.Body),
+		}}
+	}
+
+	// Launch workers
+	for i := 0; i < cfg.Concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				// Wait for rate limit permission
+				if err := limiter.Wait(ctx); err != nil {
+					return // Context cancelled
+				}
+
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					// CRITICAL: New session per iteration for memory isolation
+					session := make(map[string]string)
+
+					// Feed Data
+					for name, f := range feeders {
+						data := f.Next()
+						for k, v := range data {
+							session[name+"."+k] = v
+						}
+					}
+
+					// Execute scenario steps
+					for _, step := range steps {
+						result := e.executeStep(ctx, step, session)
+
+						// Send result
+						select {
+						case results <- result:
+						case <-ctx.Done():
+							return
+						}
+
+						// If step failed (and not ignored?), break scenario
+						// For now, any non-2xx/3xx or error stops the chain
+						if result.Error != nil || result.Status >= 400 {
+							break
+						}
+					}
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+}
+
+func (e *Engine) runStages(ctx context.Context, stages []models.Stage, limiter *rate.Limiter) {
+	for _, stage := range stages {
+		startLimit := float64(limiter.Limit())
+		targetLimit := float64(stage.Target)
+		if targetLimit == 0 {
+			targetLimit = 1
+		}
+		duration := stage.Duration
+		ticker := time.NewTicker(100 * time.Millisecond)
+		startTime := time.Now()
+
+		for {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case t := <-ticker.C:
+				elapsed := t.Sub(startTime)
+				if elapsed >= duration {
+					limiter.SetLimit(rate.Limit(targetLimit))
+					goto NextStage
+				}
+				progress := float64(elapsed) / float64(duration)
+				currentRate := startLimit + (targetLimit-startLimit)*progress
+				limiter.SetLimit(rate.Limit(currentRate))
+			}
+		}
+	NextStage:
+		ticker.Stop()
+	}
+}
+
+func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[string]string) models.Result {
+	start := time.Now()
+
+	// 1. Process Templates (URL, Body, Headers)
+	url := e.vp.Process(step.URL, session)
+	method := step.Method
+	bodyStr := e.vp.Process(step.Body, session)
+
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBufferString(bodyStr))
+	if err != nil {
+		return models.Result{Timestamp: start, Latency: time.Since(start), Error: err}
+	}
+
+	// Set default and custom headers
+	req.Header.Set("User-Agent", "Sayl/1.0")
+	req.Header.Set("Accept", "*/*")
+	for k, v := range step.Headers {
+		req.Header.Set(k, e.vp.Process(v, session))
+	}
+
+	// 2. Execute Request
+	resp, err := e.client.Do(req)
+	latency := time.Since(start)
+	if err != nil {
+		return models.Result{Timestamp: start, Latency: latency, Error: err}
+	}
+	defer resp.Body.Close()
+
+	// 3. Read Body (for size & extraction)
+	// If we need to extract, we must read the whole body.
+	// If not, we can discard. BUT, to support extraction later, we usually need it.
+	// Optimization: If no extract rules, use io.Discard to save allocations.
+	var bodyBytes []byte
+	var written int64
+
+	if len(step.Extract) > 0 {
+		bodyBytes, err = io.ReadAll(resp.Body)
+		written = int64(len(bodyBytes))
+	} else {
+		written, _ = io.Copy(io.Discard, resp.Body)
+	}
+
+	// 4. Extract Variables
+	if err == nil && len(step.Extract) > 0 && len(bodyBytes) > 0 {
+		// Use gjson for fast extraction
+
+		for varName, path := range step.Extract {
+			// path format: "json:data.token" or just "data.token"
+			// New support for "header:Header-Name"
+			if strings.HasPrefix(path, "header:") {
+				headerName := strings.TrimPrefix(path, "header:")
+				val := resp.Header.Get(headerName)
+				if val != "" {
+					session[varName] = val
+				}
+				continue
+			}
+
+			// Default: JSON extraction from body
+			val := gjson.GetBytes(bodyBytes, path).String()
+			if val != "" {
+				session[varName] = val
+			}
+		}
+	}
+
+	return models.Result{
+		Timestamp: start,
+		Latency:   latency,
+		Status:    resp.StatusCode,
+		Bytes:     written,
+	}
+}

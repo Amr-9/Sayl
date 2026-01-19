@@ -1,0 +1,26 @@
+# 07_auth_headers.yaml
+# This example focuses on Authentication and Custom Headers.
+# Common for testing protected API endpoints.
+
+target:
+  url: "https://api.example.com/v1/protected/resource"
+  method: "GET"
+  
+  headers:
+    # Standard Bearer Token
+    Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    
+    # Custom API Key
+    X-API-Key: "abcdef123456"
+    
+    # Content negotiation
+    Accept: "application/json"
+    Accept-Language: "en-US"
+    
+    # Custom tracking header
+    X-Client-ID: "sayl-performance-test"
+
+load:
+  duration: "30s"
+  rate: 10
+  concurrency: 5

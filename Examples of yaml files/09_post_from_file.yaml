@@ -1,0 +1,21 @@
+# 09_post_from_file.yaml
+# This example demonstrates reading the request body from an external file.
+# Useful for very large payloads or binary data (images, PDFs, etc.).
+
+target:
+  url: "https://api.example.com/v1/upload"
+  method: "POST"
+  
+  headers:
+    Content-Type: "application/json"
+    # Or for binary:
+    # Content-Type: "image/png"
+  
+  # 'body_file': Path to the file containing the body data.
+  # The content of 'large_payload.json' will be sent as the request body.
+  body_file: "./payload.json"
+
+load:
+  duration: "20s"
+  rate: 5
+  concurrency: 2
