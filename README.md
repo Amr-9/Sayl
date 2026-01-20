@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>🚀 Modern • ⚡ Fast • 🎨 Beautiful</strong><br>
+  <strong>Modern • Fast • Beautiful</strong><br>
   <em>A professional-grade load testing tool with an interactive TUI and powerful YAML configuration</em>
 </p>
 
@@ -18,120 +18,120 @@
 </p>
 
 <p align="center">
-  <a href="#-quick-start">🏃 Quick Start</a> •
-  <a href="#-features">✨ Features</a> •
-  <a href="#-yaml-configuration-guide">📘 YAML Guide</a> •
-  <a href="#-examples">📂 Examples</a> •
-  <a href="#-contributing">🤝 Contributing</a>
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-features">Features</a> •
+  <a href="#-yaml-configuration-guide">YAML Guide</a> •
+  <a href="#-examples">Examples</a> •
+  <a href="#-contributing">Contributing</a>
 </p>
 
 ---
 
 ## 📖 Table of Contents
 
-- [✨ Features](#-features)
-- [🆚 Why Sayl?](#-why-sayl)
-- [📦 Installation](#-installation)
-- [🏃 Quick Start](#-quick-start)
-- [🛠️ Usage Workflows](#️-usage-workflows)
-- [📘 YAML Configuration Guide](#-yaml-configuration-guide)
-  - [🎯 Target Section](#-target-section)
-  - [⚙️ Load Section](#️-load-section)
-  - [🔗 Steps Section](#-steps-section)
-  - [📁 Data Section](#-data-section)
-- [🎲 Dynamic Variables](#-dynamic-variables)
-- [🔗 Chained Scenarios](#-chained-scenarios)
-- [📁 Data Feeding (CSV)](#-data-feeding-csv)
-- [📈 Load Stages (Ramping)](#-load-stages-ramping)
-- [🔧 CLI Flags Reference](#-cli-flags-reference)
-- [📊 Output & Reports](#-output--reports)
-- [📂 Examples Gallery](#-examples-gallery)
-- [🏗️ Architecture](#️-architecture)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
+- [Features](#-features)
+- [Why Sayl?](#-why-sayl)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Usage Workflows](#️-usage-workflows)
+- [YAML Configuration Guide](#-yaml-configuration-guide)
+  - [Target Section](#-target-section)
+  - [Load Section](#️-load-section)
+  - [Steps Section](#-steps-section)
+  - [Data Section](#-data-section)
+- [Dynamic Variables](#-dynamic-variables)
+- [Chained Scenarios](#-chained-scenarios)
+- [Data Feeding (CSV)](#-data-feeding-csv)
+- [Load Stages (Ramping)](#-load-stages-ramping)
+- [CLI Flags Reference](#-cli-flags-reference)
+- [Output & Reports](#-output--reports)
+- [Examples Gallery](#-examples-gallery)
+- [Architecture](#️-architecture)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ---
 
 ## ✨ Features
 
-### 🖥️ Interactive TUI (Terminal User Interface)
+### Interactive TUI (Terminal User Interface)
 Stop wrestling with complex CLI flags! Sayl's TUI guides you through test setup with a visual wizard:
-- 📊 **Live Dashboard** with real-time metrics, sparkline charts, and status code distribution
-- 🎛️ **Visual Configuration** for URL, method, headers, rate, and duration
-- 📈 **Progress Tracking** with latency histograms and success rates
-- 🎨 **Beautiful Styling** with colors and modern UI elements
+- **Live Dashboard** with real-time metrics, sparkline charts, and status code distribution
+- **Visual Configuration** for URL, method, headers, rate, and duration
+- **Progress Tracking** with latency histograms and success rates
+- **Beautiful Styling** with colors and modern UI elements
 
-### 📄 Powerful YAML Configuration
+### Powerful YAML Configuration
 Define your test scenarios in simple, readable YAML files:
-- 📝 **Human Readable** - No programming knowledge required
-- 🔄 **Version Control Friendly** - Commit and review with your team
-- 🤖 **CI/CD Ready** - Run automated benchmarks in pipelines
-- 🧩 **Template Variables** - Inject dynamic data anywhere
+- **Human Readable** - No programming knowledge required
+- **Version Control Friendly** - Commit and review with your team
+- **CI/CD Ready** - Run automated benchmarks in pipelines
+- **Template Variables** - Inject dynamic data anywhere
 
-### 🔗 Chained Scenarios (Multi-Step Flows)
+### Chained Scenarios (Multi-Step Flows)
 Go beyond simple endpoint hitting. Create complex user flows:
-1. 🔐 **Login** to get a token
-2. 📤 **Extract** the token from the response (JSON or Header)
-3. 🔑 **Use** the token in subsequent authenticated requests
+1. **Login** to get a token
+2. **Extract** the token from the response (JSON or Header)
+3. **Use** the token in subsequent authenticated requests
 
-### 🎲 Built-in Dynamic Data Generators
+### Built-in Dynamic Data Generators
 Test with realistic data using built-in variables - no external tools needed:
 ```yaml
 body: '{"email": "{{random_email}}", "id": "{{uuid}}"}'
 ```
 
-### 📈 Smart Load Ramping (Stages)
+### Smart Load Ramping (Stages)
 Simulate real-world traffic patterns with gradual ramp-up:
 ```yaml
 stages:
-  - duration: 30s   # 🌅 Warm up
+  - duration: 30s   # Warm up
     target: 10
-  - duration: 2m    # 🔥 Peak load
+  - duration: 2m    # Peak load
     target: 500
-  - duration: 30s   # 🌙 Cool down
+  - duration: 30s   # Cool down
     target: 0
 ```
 
-### 🛡️ Reliability Features
-- 🔄 **Automatic Retries** with exponential backoff for transient errors
-- 🛑 **Graceful Shutdown** - Ctrl+C saves all data before exit
-- 🦺 **Panic Recovery** - Never crash unexpectedly
-- ✅ **Preflight Checks** - Verify target connectivity before testing
+### Reliability Features
+- **Automatic Retries** with exponential backoff for transient errors
+- **Graceful Shutdown** - Ctrl+C saves all data before exit
+- **Panic Recovery** - Never crash unexpectedly
+- **Preflight Checks** - Verify target connectivity before testing
 
-### 📊 Rich Reporting
-- 🖨️ **Console Summary** with colored metrics
-- 📋 **JSON Reports** for programmatic processing
-- 📈 **Interactive HTML Reports** with charts and visualizations
+### Rich Reporting
+- **Console Summary** with colored metrics
+- **JSON Reports** for programmatic processing
+- **Interactive HTML Reports** with charts and visualizations
 
 ---
 
 ## 🆚 Why Sayl?
 
-| Feature | 🌊 Sayl | 🥕 Vegeta | 🏎️ K6 | 🦗 Locust |
+| Feature | Sayl | Vegeta | K6 | Locust |
 | :--- | :---: | :---: | :---: | :---: |
-| **🖥️ Primary Interface** | **TUI + YAML** | CLI + Pipes | JS Scripting | Python |
-| **📚 Ease of Use** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ |
-| **⏱️ Learning Curve** | Minutes | Hours | Days | Days |
-| **🔗 Complex Scenarios** | ✅ YAML Config | ❌ Single Endpoint | ✅ JS Scripts | ✅ Python |
-| **🎲 Dynamic Variables** | ✅ Built-in | ❌ External Tools | ✅ Programmatic | ✅ Programmatic |
-| **📊 Real-time Dashboard** | ✅ Rich TUI | ❌ Basic Text | ❌ Console Only | ✅ Web UI |
-| **🔄 Auto Retry** | ✅ Built-in | ❌ Manual | ❌ Manual | ❌ Manual |
-| **🤖 CI/CD Ready** | ✅ YAML Files | ✅ Pipes | ✅ Scripts | ✅ Scripts |
-| **💻 No Coding Required** | ✅ | ✅ | ❌ | ❌ |
+| **Primary Interface** | **TUI + YAML** | CLI + Pipes | JS Scripting | Python |
+| **Ease of Use** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ |
+| **Learning Curve** | Minutes | Hours | Days | Days |
+| **Complex Scenarios** | ✅ YAML Config | ❌ Single Endpoint | ✅ JS Scripts | ✅ Python |
+| **Dynamic Variables** | ✅ Built-in | ❌ External Tools | ✅ Programmatic | ✅ Programmatic |
+| **Real-time Dashboard** | ✅ Rich TUI | ❌ Basic Text | ❌ Console Only | ✅ Web UI |
+| **Auto Retry** | ✅ Built-in | ❌ Manual | ❌ Manual | ❌ Manual |
+| **CI/CD Ready** | ✅ YAML Files | ✅ Pipes | ✅ Scripts | ✅ Scripts |
+| **No Coding Required** | ✅ | ✅ | ❌ | ❌ |
 
-### 🎯 Choose Sayl when you want:
-- ✅ Visual feedback without sacrificing performance
-- ✅ Complex scenarios without writing code
-- ✅ Quick setup for ad-hoc testing
-- ✅ Professional reports for stakeholders
+### Choose Sayl when you want:
+- Visual feedback without sacrificing performance
+- Complex scenarios without writing code
+- Quick setup for ad-hoc testing
+- Professional reports for stakeholders
 
 ---
 
 ## 📦 Installation
 
-### ⚡ Quick Download (Recommended)
+### Quick Download (Recommended)
 
-> **🎉 No installation required!** Just download the binary and run it immediately.
+> **No installation required!** Just download the binary and run it immediately.
 
 The fastest way to get started is to download a pre-built binary directly from **GitHub Releases**:
 
@@ -143,20 +143,20 @@ The fastest way to get started is to download a pre-built binary directly from *
 
 ---
 
-### 🪟 Windows Installation
+### Windows Installation
 
 **Option 1: Direct Download (Easiest)**
-1. 🌐 Go to [**GitHub Releases Page**](https://github.com/Amr-9/sayl/releases/latest)
-2. 📥 Click on `Sayl-windows-amd64.exe` to download
-3. 📂 Move the file to your desired folder
-4. ✅ Double-click or run from terminal - **That's it!**
+1. Go to [**GitHub Releases Page**](https://github.com/Amr-9/sayl/releases/latest)
+2. Click on `Sayl-windows-amd64.exe` to download
+3. Move the file to your desired folder
+4. Double-click or run from terminal - **That's it!**
 
 **Option 2: Using PowerShell**
 ```powershell
-# 📥 Download the latest release
+# Download the latest release
 Invoke-WebRequest -Uri "https://github.com/Amr-9/sayl/releases/latest/download/Sayl-windows-amd64.exe" -OutFile "sayl.exe"
 
-# ✅ Run it
+# Run it
 ./sayl
 ```
 
@@ -167,17 +167,17 @@ curl -LO https://github.com/Amr-9/sayl/releases/latest/download/Sayl-windows-amd
 
 ---
 
-### 🐧 Linux Installation
+### Linux Installation
 
 **Option 1: Direct Download**
-1. 🌐 Go to [**GitHub Releases Page**](https://github.com/Amr-9/sayl/releases/latest)
-2. 📥 Click on `Sayl-linux-amd64` to download
-3. 🔓 Make it executable: `chmod +x Sayl-linux-amd64`
-4. ✅ Run it: `./Sayl-linux-amd64`
+1. Go to [**GitHub Releases Page**](https://github.com/Amr-9/sayl/releases/latest)
+2. Click on `Sayl-linux-amd64` to download
+3. Make it executable: `chmod +x Sayl-linux-amd64`
+4. Run it: `./Sayl-linux-amd64`
 
 **Option 2: Using Terminal (One-liner)**
 ```bash
-# 📥 Download, make executable, and run
+# Download, make executable, and run
 curl -LO https://github.com/Amr-9/sayl/releases/latest/download/Sayl-linux-amd64 && \
 chmod +x Sayl-linux-amd64 && \
 ./Sayl-linux-amd64
@@ -185,36 +185,36 @@ chmod +x Sayl-linux-amd64 && \
 
 **Option 3: Install System-wide**
 ```bash
-# 📥 Download
+# Download
 curl -LO https://github.com/Amr-9/sayl/releases/latest/download/Sayl-linux-amd64
 
-# 🔓 Make executable
+# Make executable
 chmod +x Sayl-linux-amd64
 
-# 📂 Move to system path (requires sudo)
+# Move to system path (requires sudo)
 sudo mv Sayl-linux-amd64 /usr/local/bin/sayl
 
-# ✅ Now you can run from anywhere
+# Now you can run from anywhere
 sayl --help
 ```
 
 ---
 
-### 🍎 macOS Installation
+### macOS Installation
 
 **Option 1: Direct Download**
-1. 🌐 Go to [**GitHub Releases Page**](https://github.com/Amr-9/sayl/releases/latest)
-2. 📥 Click on `Sayl-macos-amd64` (Intel) or `Sayl-macos-arm64` (Apple Silicon M1/M2/M3)
-3. 🔓 Make it executable: `chmod +x Sayl-macos-*`
-4. ✅ Run it: `./Sayl-macos-*`
+1. Go to [**GitHub Releases Page**](https://github.com/Amr-9/sayl/releases/latest)
+2. Click on `Sayl-macos-amd64` (Intel) or `Sayl-macos-arm64` (Apple Silicon M1/M2/M3)
+3. Make it executable: `chmod +x Sayl-macos-*`
+4. Run it: `./Sayl-macos-*`
 
 **Option 2: Using Terminal**
 ```bash
-# 📥 For Intel Macs
+# For Intel Macs
 curl -LO https://github.com/Amr-9/sayl/releases/latest/download/Sayl-macos-amd64
 chmod +x Sayl-macos-amd64
 
-# 📥 For Apple Silicon (M1/M2/M3)
+# For Apple Silicon (M1/M2/M3)
 curl -LO https://github.com/Amr-9/sayl/releases/latest/download/Sayl-macos-arm64
 chmod +x Sayl-macos-arm64
 ```
@@ -226,49 +226,49 @@ chmod +x Sayl-macos-arm64
 
 ---
 
-### 📋 Available Downloads
+### Available Downloads
 
 Visit the [**Releases Page**](https://github.com/Amr-9/sayl/releases/latest) to see all available downloads:
 
-| 📦 File | 🖥️ Platform | 🏗️ Architecture |
+| File | Platform | Architecture |
 | :--- | :--- | :--- |
-| `Sayl-windows-amd64.exe` | 🪟 Windows | 64-bit Intel/AMD |
-| `Sayl-linux-amd64` | 🐧 Linux | 64-bit Intel/AMD |
-| `Sayl-macos-amd64` | 🍎 macOS | Intel |
-| `Sayl-macos-arm64` | 🍎 macOS | Apple Silicon (M1/M2/M3) |
+| `Sayl-windows-amd64.exe` | Windows | 64-bit Intel/AMD |
+| `Sayl-linux-amd64` | Linux | 64-bit Intel/AMD |
+| `Sayl-macos-amd64` | macOS | Intel |
+| `Sayl-macos-arm64` | macOS | Apple Silicon (M1/M2/M3) |
 
 ---
 
-### 🔨 Build from Source
+### Build from Source
 
 If you prefer to build from source or need a custom build:
 
 ```bash
-# 📋 Prerequisites: Go 1.23 or later
+# Prerequisites: Go 1.23 or later
 go version  # Verify Go is installed
 
-# 📥 Clone the repository
+# Clone the repository
 git clone https://github.com/Amr-9/sayl.git
 cd sayl
 
-# 🔧 Build the binary
+# Build the binary
 go build -o sayl ./cmd/sayl
 
-# 🚀 Or with optimizations (smaller binary)
+# Or with optimizations (smaller binary)
 go build -ldflags="-s -w" -o sayl ./cmd/sayl
 
-# ✅ Run it
+# Run it
 ./sayl
 ```
 
-### 📦 Go Install
+### Go Install
 
 If you have Go installed, you can install directly:
 
 ```bash
 go install github.com/Amr-9/sayl/cmd/sayl@latest
 
-# ✅ Run it (make sure $GOPATH/bin is in your PATH)
+# Run it (make sure $GOPATH/bin is in your PATH)
 sayl --help
 ```
 
@@ -276,18 +276,18 @@ sayl --help
 
 ## 🏃 Quick Start
 
-### 🖥️ Interactive Mode (TUI)
+### Interactive Mode (TUI)
 ```bash
 ./sayl
 ```
 Follow the visual wizard to configure and run your test.
 
-### 📄 Configuration File Mode
+### Configuration File Mode
 ```bash
 ./sayl -config scenario.yaml
 ```
 
-### ⌨️ Command Line Mode
+### Command Line Mode
 ```bash
 ./sayl -url "https://api.example.com/health" -method GET -rate 100 -duration 30s -concurrency 10
 ```
@@ -296,21 +296,21 @@ Follow the visual wizard to configure and run your test.
 
 ## 🛠️ Usage Workflows
 
-### 1️⃣ The Explorer Workflow (TUI)
-*🎯 Best for: Ad-hoc testing, debugging, and visual feedback*
+### 1. The Explorer Workflow (TUI)
+*Best for: Ad-hoc testing, debugging, and visual feedback*
 
 ```bash
 ./sayl
 ```
 
 The interactive wizard walks you through:
-1. 🎯 **Target Selection**: Input URL and HTTP Method
-2. ⚙️ **Load Configuration**: Set rate, duration, and concurrency
-3. 📋 **Header Setup**: Add custom headers (optional)
-4. 📊 **Live Dashboard**: Watch real-time metrics during the test
+1. **Target Selection**: Input URL and HTTP Method
+2. **Load Configuration**: Set rate, duration, and concurrency
+3. **Header Setup**: Add custom headers (optional)
+4. **Live Dashboard**: Watch real-time metrics during the test
 
-### 2️⃣ The Automation Workflow (YAML)
-*🎯 Best for: CI/CD pipelines, repeatable benchmarks, and complex scenarios*
+### 2. The Automation Workflow (YAML)
+*Best for: CI/CD pipelines, repeatable benchmarks, and complex scenarios*
 
 Create a `scenario.yaml`:
 ```yaml
@@ -343,12 +343,12 @@ The YAML configuration file is divided into **four main sections**. Each section
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    📄 YAML Structure                        │
+│                    YAML Structure                           │
 ├─────────────────────────────────────────────────────────────┤
-│  🎯 target:    WHERE to send requests (URL, method, body)   │
-│  ⚙️ load:      HOW to send requests (rate, duration)        │
-│  🔗 steps:     MULTI-STEP scenarios (optional)              │
-│  📁 data:      EXTERNAL data sources (optional)             │
+│  target:    WHERE to send requests (URL, method, body)      │
+│  load:      HOW to send requests (rate, duration)           │
+│  steps:     MULTI-STEP scenarios (optional)                 │
+│  data:      EXTERNAL data sources (optional)                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -361,41 +361,41 @@ The `target` section defines **WHERE** your requests go and **WHAT** they contai
 ```yaml
 target:
   # ═══════════════════════════════════════════════════════════
-  # 🌐 URL (Required)
+  # URL (Required)
   # ═══════════════════════════════════════════════════════════
   # The endpoint to test. Can include variables.
   url: "https://api.example.com/v1/users/{{uuid}}"
   
   # ═══════════════════════════════════════════════════════════
-  # 📨 HTTP Method (Required)
+  # HTTP Method (Required)
   # ═══════════════════════════════════════════════════════════
   # Supported: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS
   method: "POST"
   
   # ═══════════════════════════════════════════════════════════
-  # 📋 Headers (Optional)
+  # Headers (Optional)
   # ═══════════════════════════════════════════════════════════
   # Key-value pairs for HTTP headers. Variables supported!
   headers:
-    Content-Type: "application/json"           # 📝 Required for JSON bodies
-    Authorization: "Bearer {{auth_token}}"     # 🔑 Auth token (can be variable)
-    Accept: "application/json"                 # 📥 Expected response type
-    X-Request-ID: "req-{{timestamp_ms}}"       # 🏷️ Custom tracking header
-    User-Agent: "Sayl-LoadTest/1.0"            # 🤖 Custom user agent
+    Content-Type: "application/json"           # Required for JSON bodies
+    Authorization: "Bearer {{auth_token}}"     # Auth token (can be variable)
+    Accept: "application/json"                 # Expected response type
+    X-Request-ID: "req-{{timestamp_ms}}"       # Custom tracking header
+    User-Agent: "Sayl-LoadTest/1.0"            # Custom user agent
   
   # ═══════════════════════════════════════════════════════════
-  # 📦 Request Body (Optional - choose ONE method)
+  # Request Body (Optional - choose ONE method)
   # ═══════════════════════════════════════════════════════════
   
-  # 📝 Method 1: Inline String Body
+  # Method 1: Inline String Body
   # Best for: Simple JSON, form data, or text
   body: '{"username": "{{random_email}}", "password": "test123"}'
   
-  # 📂 Method 2: Load from File
+  # Method 2: Load from File
   # Best for: Large payloads, complex JSON, binary data
   body_file: "./payloads/create_order.json"
   
-  # 🧱 Method 3: Native YAML Object (auto-converts to JSON)
+  # Method 3: Native YAML Object (auto-converts to JSON)
   # Best for: Complex nested structures, better readability
   body_json:
     user:
@@ -410,7 +410,7 @@ target:
       total: 99.99
   
   # ═══════════════════════════════════════════════════════════
-  # ⏱️ Timeout (Optional)
+  # Timeout (Optional)
   # ═══════════════════════════════════════════════════════════
   # Maximum time to wait for a response
   # Format: "30s", "1m", "500ms"
@@ -418,24 +418,24 @@ target:
   timeout: "15s"
   
   # ═══════════════════════════════════════════════════════════
-  # 🔓 TLS Settings (Optional)
+  # TLS Settings (Optional)
   # ═══════════════════════════════════════════════════════════
   # Skip TLS certificate verification (for self-signed certs)
-  # ⚠️ WARNING: Only use in development/testing!
+  # WARNING: Only use in development/testing!
   insecure: false  # Default: false
   
   # ═══════════════════════════════════════════════════════════
-  # 🔌 Connection Settings (Optional)
+  # Connection Settings (Optional)
   # ═══════════════════════════════════════════════════════════
   # Enable HTTP keep-alive for connection reuse
   # Improves performance for high-rate tests
   keep_alive: true  # Default: true
 ```
 
-#### 📝 Body Format Examples
+#### Body Format Examples
 
 <details>
-<summary>📋 Click to expand: JSON Body Examples</summary>
+<summary>Click to expand: JSON Body Examples</summary>
 
 ```yaml
 # Simple JSON
@@ -457,7 +457,7 @@ body: |
 </details>
 
 <details>
-<summary>📋 Click to expand: Form Data Examples</summary>
+<summary>Click to expand: Form Data Examples</summary>
 
 ```yaml
 # URL-encoded form data
@@ -468,7 +468,7 @@ body: "username={{random_email}}&password=secret123&remember=true"
 </details>
 
 <details>
-<summary>📋 Click to expand: GraphQL Examples</summary>
+<summary>Click to expand: GraphQL Examples</summary>
 
 ```yaml
 headers:
@@ -495,72 +495,72 @@ The `load` section defines **HOW** requests are sent - rate, duration, and concu
 ```yaml
 load:
   # ═══════════════════════════════════════════════════════════
-  # ⏱️ Duration (Required if no stages)
+  # Duration (Required if no stages)
   # ═══════════════════════════════════════════════════════════
   # How long to run the test
   # Format: "30s", "5m", "1h", "1h30m"
   duration: "2m"
   
   # ═══════════════════════════════════════════════════════════
-  # 🚀 Rate (Required if no stages)
+  # Rate (Required if no stages)
   # ═══════════════════════════════════════════════════════════
   # Requests per second (RPS) to maintain
   # This is the TARGET rate - actual may vary based on server response
   rate: 100
   
   # ═══════════════════════════════════════════════════════════
-  # 👥 Concurrency (Required)
+  # Concurrency (Required)
   # ═══════════════════════════════════════════════════════════
   # Number of concurrent workers (goroutines)
   # 
-  # 💡 TIPS:
+  # TIPS:
   # - Set higher than rate for bursty traffic
   # - Set equal to rate for steady traffic
   # - For slow endpoints, use concurrency > rate
   #
-  # 📊 Example: rate=100, concurrency=50
+  # Example: rate=100, concurrency=50
   #    Each worker handles ~2 requests/second
   concurrency: 50
   
   # ═══════════════════════════════════════════════════════════
-  # ✅ Success Codes (Optional)
+  # Success Codes (Optional)
   # ═══════════════════════════════════════════════════════════
   # HTTP status codes to count as successful
   # Default: [200]
   success_codes: [200, 201, 202, 204]
   
   # ═══════════════════════════════════════════════════════════
-  # 📈 Stages (Optional - replaces duration/rate)
+  # Stages (Optional - replaces duration/rate)
   # ═══════════════════════════════════════════════════════════
   # Define variable load patterns over time
   # Rate transitions SMOOTHLY between stages (linear ramping)
   stages:
-    # 🌅 Stage 1: Warm-up
+    # Stage 1: Warm-up
     - duration: "30s"
       target: 10      # Start at 10 RPS
     
-    # 📈 Stage 2: Ramp up
+    # Stage 2: Ramp up
     - duration: "1m"
       target: 100     # Gradually increase to 100 RPS
     
-    # 🔥 Stage 3: Peak load
+    # Stage 3: Peak load
     - duration: "5m"
       target: 100     # Hold at 100 RPS
     
-    # ⚡ Stage 4: Stress test
+    # Stage 4: Stress test
     - duration: "30s"
       target: 500     # Spike to 500 RPS
     
-    # 📉 Stage 5: Recovery
+    # Stage 5: Recovery
     - duration: "1m"
       target: 50      # Drop to 50 RPS
     
-    # 🌙 Stage 6: Cool down
+    # Stage 6: Cool down
     - duration: "30s"
       target: 0       # Gradually stop
 ```
 
-#### 📊 Load Pattern Visualization
+#### Load Pattern Visualization
 
 ```
 Rate (RPS)
@@ -587,9 +587,9 @@ The `steps` section defines **MULTI-STEP** scenarios for complex API flows.
 ```yaml
 steps:
   # ═══════════════════════════════════════════════════════════
-  # 🔐 Step 1: Authentication
+  # Step 1: Authentication
   # ═══════════════════════════════════════════════════════════
-  - name: "Login"                              # 🏷️ Step identifier (for logs)
+  - name: "Login"                              # Step identifier (for logs)
     url: "https://api.example.com/auth/login"
     method: "POST"
     headers:
@@ -600,7 +600,7 @@ steps:
         "password": "test123"
       }
     
-    # 📤 Extract values from response for later use
+    # Extract values from response for later use
     extract:
       # JSON path extraction (dot notation)
       auth_token: "data.access_token"    # From: {"data": {"access_token": "abc"}}
@@ -612,22 +612,22 @@ steps:
       rate_limit: "header:X-RateLimit-Remaining"
 
   # ═══════════════════════════════════════════════════════════
-  # 👤 Step 2: Get User Profile (uses extracted token)
+  # Step 2: Get User Profile (uses extracted token)
   # ═══════════════════════════════════════════════════════════
   - name: "Get Profile"
-    url: "https://api.example.com/users/{{user_id}}"  # 🔄 Using extracted variable
+    url: "https://api.example.com/users/{{user_id}}"  # Using extracted variable
     method: "GET"
     headers:
-      Authorization: "Bearer {{auth_token}}"          # 🔑 Using extracted token
+      Authorization: "Bearer {{auth_token}}"          # Using extracted token
       X-Session-ID: "{{session_id}}"
     
-    # 📤 Extract more data for next step
+    # Extract more data for next step
     extract:
       account_id: "data.account_id"
       subscription_tier: "data.subscription.tier"
 
   # ═══════════════════════════════════════════════════════════
-  # 🛒 Step 3: Create Order (uses multiple extracted values)
+  # Step 3: Create Order (uses multiple extracted values)
   # ═══════════════════════════════════════════════════════════
   - name: "Create Order"
     url: "https://api.example.com/accounts/{{account_id}}/orders"
@@ -643,17 +643,17 @@ steps:
         "tier": "{{subscription_tier}}"
       }
     
-    # 💾 Save computed values for this step
+    # Save computed values for this step
     variables:
       order_timestamp: "{{timestamp_ms}}"
       order_id_prefix: "ORD-{{random_digits_8}}"
 ```
 
-#### 🔄 Step Execution Flow
+#### Step Execution Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     🔄 Step Execution                       │
+│                     Step Execution                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │   Step 1: Login                                             │
@@ -696,31 +696,31 @@ The `data` section defines **EXTERNAL** data sources like CSV files.
 ```yaml
 data:
   # ═══════════════════════════════════════════════════════════
-  # 👥 Users Data Source
+  # Users Data Source
   # ═══════════════════════════════════════════════════════════
-  - name: "users"           # 🏷️ Reference name (use as {{users.column}})
-    path: "./data/users.csv"  # 📂 Path to CSV file
+  - name: "users"           # Reference name (use as {{users.column}})
+    path: "./data/users.csv"  # Path to CSV file
   
-  # 🛍️ Products Data Source
+  # Products Data Source
   - name: "products"
     path: "./data/products.csv"
   
-  # 🏢 Companies Data Source
+  # Companies Data Source
   - name: "companies"
     path: "./data/companies.csv"
 ```
 
-#### 📄 CSV File Format
+#### CSV File Format
 
 ```csv
-# 📂 data/users.csv
+# data/users.csv
 email,password,name,role
 admin@test.com,secret123,Alice Admin,admin
 user1@test.com,pass456,Bob User,user
 user2@test.com,pass789,Charlie User,user
 ```
 
-#### 🔄 Usage in YAML
+#### Usage in YAML
 
 ```yaml
 target:
@@ -735,11 +735,11 @@ target:
     }
 ```
 
-#### 💡 Data Feeding Behavior
+#### Data Feeding Behavior
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   📊 CSV Data Cycling                       │
+│                   CSV Data Cycling                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │   CSV File:              Request Uses:                      │
@@ -752,8 +752,8 @@ target:
 │   │ ...            │ ───▶ ...                               │
 │   └────────────────┘                                        │
 │                                                             │
-│   ♻️ Data cycles infinitely through all rows                │
-│   🧵 Each worker gets next row (thread-safe)                │
+│   Data cycles infinitely through all rows                   │
+│   Each worker gets next row (thread-safe)                   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -764,40 +764,40 @@ target:
 
 Inject random/dynamic data anywhere in your configuration using `{{variable}}` syntax.
 
-### 📦 Built-in Generators
+### Built-in Generators
 
-| 🏷️ Variable | 📝 Description | 💡 Example Output |
+| Variable | Description | Example Output |
 | :--- | :--- | :--- |
-| `{{uuid}}` | 🔑 Random UUID v4 | `d53a1f32-8c4a-4b1e-9f2c-...` |
-| `{{random_int}}` | 🔢 Random integer (0-100,000) | `48293` |
-| `{{random_email}}` | 📧 Random email address | `user482938@example.com` |
-| `{{random_name}}` | 👤 Random name with number | `Alice 847` |
-| `{{random_phone}}` | 📱 US phone number | `+1-555-0142` |
-| `{{random_domain}}` | 🌐 Random subdomain | `x7k2.example.com` |
-| `{{random_alphanum}}` | 🔤 10-char alphanumeric | `aZ9xK2mNpQ` |
-| `{{timestamp}}` | ⏰ Unix timestamp (seconds) | `1705632847` |
-| `{{timestamp_ms}}` | ⏱️ Unix timestamp (milliseconds) | `1705632847123` |
+| `{{uuid}}` | Random UUID v4 | `d53a1f32-8c4a-4b1e-9f2c-...` |
+| `{{random_int}}` | Random integer (0-100,000) | `48293` |
+| `{{random_email}}` | Random email address | `user482938@example.com` |
+| `{{random_name}}` | Random name with number | `Alice 847` |
+| `{{random_phone}}` | US phone number | `+1-555-0142` |
+| `{{random_domain}}` | Random subdomain | `x7k2.example.com` |
+| `{{random_alphanum}}` | 10-char alphanumeric | `aZ9xK2mNpQ` |
+| `{{timestamp}}` | Unix timestamp (seconds) | `1705632847` |
+| `{{timestamp_ms}}` | Unix timestamp (milliseconds) | `1705632847123` |
 
-### 🔢 Dynamic Length Generators
+### Dynamic Length Generators
 
-| 🏷️ Variable | 📝 Description | 💡 Example Output |
+| Variable | Description | Example Output |
 | :--- | :--- | :--- |
-| `{{random_digits_5}}` | 5️⃣ 5 random digits | `48293` |
-| `{{random_digits_10}}` | 🔟 10 random digits | `4829316745` |
-| `{{random_digits_N}}` | #️⃣ N random digits (max 20) | `...` |
+| `{{random_digits_5}}` | 5 random digits | `48293` |
+| `{{random_digits_10}}` | 10 random digits | `4829316745` |
+| `{{random_digits_N}}` | N random digits (max 20) | `...` |
 
-### 💡 Usage Examples
+### Usage Examples
 
 ```yaml
-# 🌐 In URL
+# In URL
 url: "https://api.example.com/users/{{uuid}}"
 
-# 📋 In Headers
+# In Headers
 headers:
   X-Request-ID: "req-{{timestamp_ms}}"
   X-Correlation-ID: "{{uuid}}"
 
-# 📦 In Body
+# In Body
 body: |
   {
     "email": "{{random_email}}",
@@ -812,26 +812,26 @@ body: |
 
 ## 🔧 CLI Flags Reference
 
-| 🏷️ Flag | 🔤 Short | 📝 Description | 💡 Example |
+| Flag | Short | Description | Example |
 | :--- | :---: | :--- | :--- |
-| `--config` | `-f` | 📄 YAML configuration file | `-config test.yaml` |
-| `--url` | | 🌐 Target URL | `--url https://api.example.com` |
-| `--method` | | 📨 HTTP method | `--method POST` |
-| `--rate` | | 🚀 Requests per second | `--rate 100` |
-| `--duration` | | ⏱️ Test duration | `--duration 2m` |
-| `--concurrency` | | 👥 Concurrent workers | `--concurrency 20` |
-| `--success` | | ✅ Success status codes | `--success 200,201,204` |
+| `--config` | `-f` | YAML configuration file | `-config test.yaml` |
+| `--url` | | Target URL | `--url https://api.example.com` |
+| `--method` | | HTTP method | `--method POST` |
+| `--rate` | | Requests per second | `--rate 100` |
+| `--duration` | | Test duration | `--duration 2m` |
+| `--concurrency` | | Concurrent workers | `--concurrency 20` |
+| `--success` | | Success status codes | `--success 200,201,204` |
 
-### 💡 CLI Examples
+### CLI Examples
 
 ```bash
-# 🧪 Simple GET test
+# Simple GET test
 ./sayl --url "https://api.example.com/health" --rate 50 --duration 1m --concurrency 10
 
-# 📄 Override config file settings
+# Override config file settings
 ./sayl -config base.yaml --rate 500 --duration 30s
 
-# ✅ Test with custom success codes
+# Test with custom success codes
 ./sayl --url "https://api.example.com/create" --method POST --success 200,201,202
 ```
 
@@ -839,43 +839,43 @@ body: |
 
 ## 📊 Output & Reports
 
-### 🖨️ Console Summary
+### Console Summary
 After each test, Sayl displays a detailed console summary:
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║                   🌊 SAYL LOAD TEST REPORT                   ║
 ╠══════════════════════════════════════════════════════════════╣
-║  🎯 Target: https://api.example.com/v1/orders                ║
-║  📨 Method: POST                                             ║
-║  ⏱️  Duration: 2m0s                                          ║
+║  Target: https://api.example.com/v1/orders                   ║
+║  Method: POST                                                ║
+║  Duration: 2m0s                                              ║
 ╠══════════════════════════════════════════════════════════════╣
-║  📊 METRICS                                                  ║
+║  METRICS                                                     ║
 ╠══════════════════════════════════════════════════════════════╣
-║  📈 Total Requests:     12,847                               ║
-║  ✅ Success Rate:       98.7%                                ║
-║  ⏱️  Avg Latency:        45.2ms                              ║
-║  📊 P50 Latency:        38.1ms                               ║
-║  📊 P95 Latency:        89.4ms                               ║
-║  📊 P99 Latency:        156.2ms                              ║
-║  💾 Throughput:         2.4 MB/s                             ║
+║  Total Requests:     12,847                                  ║
+║  Success Rate:       98.7%                                   ║
+║  Avg Latency:        45.2ms                                  ║
+║  P50 Latency:        38.1ms                                  ║
+║  P95 Latency:        89.4ms                                  ║
+║  P99 Latency:        156.2ms                                 ║
+║  Throughput:         2.4 MB/s                                ║
 ╠══════════════════════════════════════════════════════════════╣
-║  📋 STATUS CODES                                             ║
+║  STATUS CODES                                                ║
 ╠══════════════════════════════════════════════════════════════╣
-║  ✅ 200 OK:             12,542 (97.6%)                       ║
-║  ✅ 201 Created:        142 (1.1%)                           ║
-║  ❌ 500 Server Error:   89 (0.7%)                            ║
-║  ⏱️  Timeout:            74 (0.6%)                           ║
+║  200 OK:             12,542 (97.6%)                          ║
+║  201 Created:        142 (1.1%)                              ║
+║  500 Server Error:   89 (0.7%)                               ║
+║  Timeout:            74 (0.6%)                               ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
-### 📄 Generated Files
+### Generated Files
 
-| 📂 File | 📝 Description |
+| File | Description |
 | :--- | :--- |
-| `report.json` | 🤖 Machine-readable JSON with all metrics |
-| `report.html` | 📈 Interactive HTML dashboard with charts |
+| `report.json` | Machine-readable JSON with all metrics |
+| `report.html` | Interactive HTML dashboard with charts |
 
-### 🗂️ JSON Report Structure
+### JSON Report Structure
 ```json
 {
   "target_url": "https://api.example.com",
@@ -913,58 +913,58 @@ After each test, Sayl displays a detailed console summary:
 
 The `Examples of yaml files` folder contains ready-to-use configurations:
 
-| 📄 File | 📝 Description | 🏷️ Tags |
+| File | Description | Tags |
 | :--- | :--- | :--- |
-| [01_basic_get.yaml](./Examples%20of%20yaml%20files/01_basic_get.yaml) | 🌐 Simple GET request | `beginner` |
-| [02_post_json.yaml](./Examples%20of%20yaml%20files/02_post_json.yaml) | 📦 POST with JSON body | `beginner` |
-| [03_post_raw_body.yaml](./Examples%20of%20yaml%20files/03_post_raw_body.yaml) | 📝 POST with raw text body | `beginner` |
-| [04_load_stages.yaml](./Examples%20of%20yaml%20files/04_load_stages.yaml) | 📈 Ramped load with stages | `intermediate` |
-| [05_data_loader.yaml](./Examples%20of%20yaml%20files/05_data_loader.yaml) | 📁 CSV data feeding | `intermediate` |
-| [06_scenario_chain.yaml](./Examples%20of%20yaml%20files/06_scenario_chain.yaml) | 🔗 Multi-step auth flow | `advanced` |
-| [07_auth_headers.yaml](./Examples%20of%20yaml%20files/07_auth_headers.yaml) | 🔑 Bearer token auth | `beginner` |
-| [08_advanced_config.yaml](./Examples%20of%20yaml%20files/08_advanced_config.yaml) | ⚙️ All options combined | `advanced` |
-| [10_graphql_query.yaml](./Examples%20of%20yaml%20files/10_graphql_query.yaml) | 🔮 GraphQL queries | `intermediate` |
-| [17_complex_json_body.yaml](./Examples%20of%20yaml%20files/17_complex_json_body.yaml) | 🧱 Nested JSON with body_json | `intermediate` |
-| [19_variables_demo.yaml](./Examples%20of%20yaml%20files/19_variables_demo.yaml) | 🎲 All variable types | `intermediate` |
-| [21_persistence_demo.yaml](./Examples%20of%20yaml%20files/21_persistence_demo.yaml) | 💾 Session persistence | `advanced` |
+| [01_basic_get.yaml](./Examples%20of%20yaml%20files/01_basic_get.yaml) | Simple GET request | `beginner` |
+| [02_post_json.yaml](./Examples%20of%20yaml%20files/02_post_json.yaml) | POST with JSON body | `beginner` |
+| [03_post_raw_body.yaml](./Examples%20of%20yaml%20files/03_post_raw_body.yaml) | POST with raw text body | `beginner` |
+| [04_load_stages.yaml](./Examples%20of%20yaml%20files/04_load_stages.yaml) | Ramped load with stages | `intermediate` |
+| [05_data_loader.yaml](./Examples%20of%20yaml%20files/05_data_loader.yaml) | CSV data feeding | `intermediate` |
+| [06_scenario_chain.yaml](./Examples%20of%20yaml%20files/06_scenario_chain.yaml) | Multi-step auth flow | `advanced` |
+| [07_auth_headers.yaml](./Examples%20of%20yaml%20files/07_auth_headers.yaml) | Bearer token auth | `beginner` |
+| [08_advanced_config.yaml](./Examples%20of%20yaml%20files/08_advanced_config.yaml) | All options combined | `advanced` |
+| [10_graphql_query.yaml](./Examples%20of%20yaml%20files/10_graphql_query.yaml) | GraphQL queries | `intermediate` |
+| [17_complex_json_body.yaml](./Examples%20of%20yaml%20files/17_complex_json_body.yaml) | Nested JSON with body_json | `intermediate` |
+| [19_variables_demo.yaml](./Examples%20of%20yaml%20files/19_variables_demo.yaml) | All variable types | `intermediate` |
+| [21_persistence_demo.yaml](./Examples%20of%20yaml%20files/21_persistence_demo.yaml) | Session persistence | `advanced` |
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-🌊 sayl/
-├── 🚀 cmd/sayl/                 # Application entry point
-│   └── main.go                  # CLI parsing, signal handling
-├── 🔧 internal/
-│   ├── ⚡ attacker/             # Load generation engine
-│   │   ├── attacker.go          # HTTP client, workers, retry logic
-│   │   ├── variables.go         # Template variable processor
-│   │   └── csv_feeder.go        # CSV data source handler
-│   ├── 📊 report/               # Report generation
-│   │   └── report.go            # Console, JSON, HTML reports
-│   ├── 📈 stats/                # Statistics collection
-│   │   └── collector.go         # Latency histograms, percentiles
-│   └── 🖥️ tui/                  # Terminal UI
-│       ├── setup.go             # Configuration wizard
-│       ├── dash.go              # Live dashboard
-│       └── styles.go            # UI styling
-└── 📦 pkg/
-    ├── ⚙️ config/               # Configuration parsing
-    │   └── config.go            # YAML loader, validator
-    └── 🗂️ models/               # Data structures
-        └── models.go            # Config, Result, Report types
+sayl/
+├── cmd/sayl/                 # Application entry point
+│   └── main.go               # CLI parsing, signal handling
+├── internal/
+│   ├── attacker/             # Load generation engine
+│   │   ├── attacker.go       # HTTP client, workers, retry logic
+│   │   ├── variables.go      # Template variable processor
+│   │   └── csv_feeder.go     # CSV data source handler
+│   ├── report/               # Report generation
+│   │   └── report.go         # Console, JSON, HTML reports
+│   ├── stats/                # Statistics collection
+│   │   └── collector.go      # Latency histograms, percentiles
+│   └── tui/                  # Terminal UI
+│       ├── setup.go          # Configuration wizard
+│       ├── dash.go           # Live dashboard
+│       └── styles.go         # UI styling
+└── pkg/
+    ├── config/               # Configuration parsing
+    │   └── config.go         # YAML loader, validator
+    └── models/               # Data structures
+        └── models.go         # Config, Result, Report types
 ```
 
-### 🧩 Key Components
+### Key Components
 
-| 🔧 Component | 📝 Responsibility |
+| Component | Responsibility |
 | :--- | :--- |
-| ⚡ **Attacker Engine** | Manages HTTP client pool, rate limiting, and worker goroutines |
-| 🎲 **Variable Processor** | Parses and replaces `{{variable}}` placeholders |
-| 📊 **Stats Collector** | Aggregates latency, status codes, and throughput |
-| 🖥️ **TUI Module** | Renders interactive terminal interface |
-| ⚙️ **Config Loader** | Parses YAML and validates configuration |
+| **Attacker Engine** | Manages HTTP client pool, rate limiting, and worker goroutines |
+| **Variable Processor** | Parses and replaces `{{variable}}` placeholders |
+| **Stats Collector** | Aggregates latency, status codes, and throughput |
+| **TUI Module** | Renders interactive terminal interface |
+| **Config Loader** | Parses YAML and validates configuration |
 
 ---
 
@@ -972,11 +972,11 @@ The `Examples of yaml files` folder contains ready-to-use configurations:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-1. 🍴 Fork the repository
-2. 🌿 Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. 💾 Commit your changes (`git commit -m 'Add amazing feature'`)
-4. 📤 Push to the branch (`git push origin feature/amazing-feature`)
-5. 🔃 Open a Pull Request
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 

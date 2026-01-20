@@ -32,7 +32,7 @@ jobs:
             asset_name: Sayl-macos-arm64
             goos: darwin
             goarch: arm64
-          - os: macos-13
+          - os: macos-15-intel
             asset_name: Sayl-macos-amd64
             goos: darwin
             goarch: amd64
