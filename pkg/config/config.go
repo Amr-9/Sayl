@@ -39,6 +39,7 @@ type YAMLConfig struct {
 		Duration     string `yaml:"duration,omitempty"`
 		Rate         int    `yaml:"rate,omitempty"`
 		Concurrency  int    `yaml:"concurrency,omitempty"`
+		Workers      int    `yaml:"workers,omitempty"` // Alias for concurrency
 		SuccessCodes []int  `yaml:"success_codes,omitempty"`
 		StopIf       string `yaml:"stop_if,omitempty"`     // Circuit breaker: "errors > 10%"
 		MinSamples   int64  `yaml:"min_samples,omitempty"` // Min samples before circuit breaker can trip
@@ -80,12 +81,18 @@ func LoadConfig(path string) (*models.Config, error) {
 
 	fmt.Printf("DEBUG: Loaded %d steps from config\n", len(yamlCfg.Steps))
 
+	// Use Workers as fallback for Concurrency
+	concurrency := yamlCfg.Load.Concurrency
+	if concurrency == 0 && yamlCfg.Load.Workers > 0 {
+		concurrency = yamlCfg.Load.Workers
+	}
+
 	cfg := &models.Config{
 		URL:         yamlCfg.Target.URL,
 		Method:      yamlCfg.Target.Method,
 		Headers:     yamlCfg.Target.Headers,
 		Rate:        yamlCfg.Load.Rate,
-		Concurrency: yamlCfg.Load.Concurrency,
+		Concurrency: concurrency,
 		Insecure:    yamlCfg.Target.Insecure,
 		KeepAlive:   yamlCfg.Target.KeepAlive,
 	}

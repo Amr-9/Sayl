@@ -26,9 +26,10 @@ type RetryConfig struct {
 
 // Engine implements the load testing logic
 type Engine struct {
-	client *http.Client
-	vp     *VariableProcessor
-	retry  RetryConfig
+	client      *http.Client
+	vp          *VariableProcessor
+	retry       RetryConfig
+	sessionPool *sync.Pool
 }
 
 // DefaultRetryConfig returns reasonable defaults for retries
@@ -43,6 +44,11 @@ func NewEngine() *Engine {
 	return &Engine{
 		vp:    NewVariableProcessor(),
 		retry: DefaultRetryConfig(),
+		sessionPool: &sync.Pool{
+			New: func() any {
+				return make(map[string]string)
+			},
+		},
 	}
 }
 
@@ -199,8 +205,9 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 				case <-ctx.Done():
 					return
 				default:
-					// CRITICAL: New session per iteration for memory isolation
-					session := make(map[string]string)
+					// CRITICAL: Reuse session map to reduce GC pressure
+					session := e.sessionPool.Get().(map[string]string)
+					clear(session) // Go 1.21+ built-in to clear map efficiently
 
 					// Feed Data
 					for name, f := range feeders {
@@ -218,6 +225,8 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 						select {
 						case results <- result:
 						case <-ctx.Done():
+							// Ensure we return the map even if cancelled here
+							e.sessionPool.Put(session)
 							return
 						}
 
@@ -227,6 +236,9 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 							break
 						}
 					}
+
+					// Return map to pool for reuse
+					e.sessionPool.Put(session)
 				}
 			}
 		}()

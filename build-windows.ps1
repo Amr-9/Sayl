@@ -26,7 +26,7 @@ $env:CGO_ENABLED = "0"
 
 # Build the application
 Write-Host "Building application..." -ForegroundColor Yellow
-go build -o sayl.exe ./cmd/sayl/
+go build -trimpath -ldflags "-s -w" -o sayl.exe ./cmd/sayl/
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Build successful!" -ForegroundColor Green
