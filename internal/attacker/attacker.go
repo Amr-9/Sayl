@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Amr-9/sayl/internal/validator"
 	"github.com/Amr-9/sayl/pkg/models"
 	"github.com/tidwall/gjson"
 	"golang.org/x/time/rate"
@@ -282,7 +283,7 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 
 	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBufferString(bodyStr))
 	if err != nil {
-		return models.Result{Timestamp: start, Latency: time.Since(start), Error: err}
+		return models.Result{Timestamp: start, Latency: time.Since(start), Error: err, StepName: step.Name}
 	}
 
 	// Set default and custom headers
@@ -296,18 +297,17 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 	resp, err := e.client.Do(req)
 	latency := time.Since(start)
 	if err != nil {
-		return models.Result{Timestamp: start, Latency: latency, Error: err}
+		return models.Result{Timestamp: start, Latency: latency, Error: err, StepName: step.Name}
 	}
 	defer resp.Body.Close()
 
-	// 3. Read Body (for size & extraction)
-	// If we need to extract, we must read the whole body.
-	// If not, we can discard. BUT, to support extraction later, we usually need it.
-	// Optimization: If no extract rules, use io.Discard to save allocations.
+	// 3. Read Body (for size & extraction & assertions)
+	// If we need to extract OR validate assertions, we must read the whole body.
 	var bodyBytes []byte
 	var written int64
 
-	if len(step.Extract) > 0 {
+	needBody := len(step.Extract) > 0 || len(step.Assertions) > 0
+	if needBody {
 		bodyBytes, err = io.ReadAll(resp.Body)
 		written = int64(len(bodyBytes))
 	} else {
@@ -338,11 +338,19 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 		}
 	}
 
+	// 5. Validate Assertions (NEW!)
+	var assertionErr error
+	if len(step.Assertions) > 0 && len(bodyBytes) > 0 {
+		assertionErr = validator.ValidateAssertions(bodyBytes, step.Assertions)
+	}
+
 	return models.Result{
-		Timestamp: start,
-		Latency:   latency,
-		Status:    resp.StatusCode,
-		Bytes:     written,
+		Timestamp:      start,
+		Latency:        latency,
+		Status:         resp.StatusCode,
+		Bytes:          written,
+		AssertionError: assertionErr, // Separate from network errors!
+		StepName:       step.Name,
 	}
 }
 

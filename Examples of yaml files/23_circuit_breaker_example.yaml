@@ -1,0 +1,37 @@
+# 23_circuit_breaker_example.yaml
+# Demonstrates Circuit Breaker functionality for automatic test termination.
+# The test will STOP automatically if error rate exceeds the threshold.
+# This prevents wasting resources on clearly failing tests.
+
+load:
+  duration: "5m"         # Maximum duration (may stop earlier if breaker trips)
+  rate: 50
+  concurrency: 10
+  success_codes: [200]
+  
+  # ⚡ Circuit Breaker Configuration
+  stop_if: "errors > 10%"   # Stop test if more than 10% of requests fail
+  min_samples: 100          # Wait for at least 100 requests before activating
+                            # This prevents "cold start" false positives!
+
+steps:
+  - name: "API Health Check"
+    url: "https://httpbin.org/status/200"
+    method: "GET"
+
+# IMPORTANT: min_samples prevents the circuit breaker from tripping too early.
+# Without it, if the first request fails, that's 100% error rate and the test stops!
+#
+# Example scenarios:
+# - First 100 requests: 5 fail (5%) -> Breaker stays closed, test continues
+# - At 200 requests: 25 total failures (12.5%) -> Breaker TRIPS, test stops
+#
+# The breaker evaluates: (network_failures + assertion_failures) / total_requests
+#
+# Supported conditions:
+#   stop_if: "errors > 10%"        # Percentage threshold
+#   stop_if: "errors > 0.1"        # Rate threshold (same as 10%)
+#   stop_if: "error_rate >= 0.15"  # Greater than or equal
+#   stop_if: "failures > 50"       # Absolute count threshold
+
+# Run: ./sayl -config "Examples of yaml files/23_circuit_breaker_example.yaml"

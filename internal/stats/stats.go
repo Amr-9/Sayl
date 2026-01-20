@@ -40,11 +40,13 @@ type secondBucket struct {
 
 // Monitor handles real-time metrics collection using atomic counters and HDR Histogram
 type Monitor struct {
-	requests    int64
-	success     int64
-	fail        int64
-	statusCodes sync.Map // map[int]int
-	errors      sync.Map // map[string]int
+	requests          int64
+	success           int64
+	fail              int64
+	assertionFailures int64    // Separate counter for assertion failures
+	statusCodes       sync.Map // map[int]int
+	errors            sync.Map // map[string]int (network/server errors)
+	assertionErrors   sync.Map // map[string]int (assertion failures)
 
 	totalBytes int64
 
@@ -84,7 +86,18 @@ func (m *Monitor) getOrCreateBucket(second int) *secondBucket {
 func (m *Monitor) Add(res models.Result, isSuccess bool) {
 	atomic.AddInt64(&m.requests, 1)
 	atomic.AddInt64(&m.totalBytes, res.Bytes)
-	if isSuccess {
+
+	// Track assertion failures separately from network failures
+	hasAssertionError := res.AssertionError != nil
+	if hasAssertionError {
+		atomic.AddInt64(&m.assertionFailures, 1)
+		// Track assertion error message
+		errStr := res.AssertionError.Error()
+		count, _ := m.assertionErrors.LoadOrStore(errStr, 0)
+		m.assertionErrors.Store(errStr, count.(int)+1)
+	}
+
+	if isSuccess && !hasAssertionError {
 		atomic.AddInt64(&m.success, 1)
 	} else {
 		atomic.AddInt64(&m.fail, 1)
@@ -101,7 +114,7 @@ func (m *Monitor) Add(res models.Result, isSuccess bool) {
 	count, _ := m.statusCodes.LoadOrStore(res.Status, 0)
 	m.statusCodes.Store(res.Status, count.(int)+1)
 
-	// Update errors
+	// Update network/server errors (separate from assertion errors)
 	if res.Error != nil {
 		errStr := sanitizeError(res.Error.Error())
 		count, _ := m.errors.LoadOrStore(errStr, 0)
@@ -121,7 +134,7 @@ func (m *Monitor) Add(res models.Result, isSuccess bool) {
 	atomic.AddInt64(&bucket.requests, 1)
 	atomic.AddInt64(&bucket.totalLatency, latencyUs)
 	atomic.AddInt64(&bucket.totalBytes, res.Bytes)
-	if isSuccess {
+	if isSuccess && !hasAssertionError {
 		atomic.AddInt64(&bucket.success, 1)
 	} else {
 		atomic.AddInt64(&bucket.fail, 1)
@@ -135,6 +148,13 @@ func (m *Monitor) Add(res models.Result, isSuccess bool) {
 	bucket.mu.Lock()
 	_ = bucket.histogram.RecordValue(latencyUs)
 	bucket.mu.Unlock()
+}
+
+// GetStats returns current counters for circuit breaker checks
+func (m *Monitor) GetStats() (totalRequests, failures, assertionFailures int64) {
+	return atomic.LoadInt64(&m.requests),
+		atomic.LoadInt64(&m.fail),
+		atomic.LoadInt64(&m.assertionFailures)
 }
 
 // Snapshot returns a current report of the metrics
@@ -240,23 +260,32 @@ func (m *Monitor) Snapshot() models.Report {
 	}
 	m.bucketMu.RUnlock()
 
+	// Collect assertion errors separately
+	assertionErrorMap := make(map[string]int)
+	m.assertionErrors.Range(func(key, value interface{}) bool {
+		assertionErrorMap[key.(string)] = value.(int)
+		return true
+	})
+
 	return models.Report{
-		TotalRequests:  reqs,
-		SuccessCount:   succ,
-		FailureCount:   fail,
-		SuccessRate:    successRate,
-		TotalBytes:     totalBytes,
-		Throughput:     throughput,
-		RPS:            rps,
-		P50:            p50,
-		P75:            p75,
-		P90:            p90,
-		P95:            p95,
-		P99:            p99,
-		Max:            max,
-		Min:            min,
-		StatusCodes:    statusMap,
-		Errors:         errorMap,
-		TimeSeriesData: timeSeriesData,
+		TotalRequests:     reqs,
+		SuccessCount:      succ,
+		FailureCount:      fail,
+		AssertionFailures: atomic.LoadInt64(&m.assertionFailures),
+		SuccessRate:       successRate,
+		TotalBytes:        totalBytes,
+		Throughput:        throughput,
+		RPS:               rps,
+		P50:               p50,
+		P75:               p75,
+		P90:               p90,
+		P95:               p95,
+		P99:               p99,
+		Max:               max,
+		Min:               min,
+		StatusCodes:       statusMap,
+		Errors:            errorMap,
+		AssertionErrors:   assertionErrorMap,
+		TimeSeriesData:    timeSeriesData,
 	}
 }

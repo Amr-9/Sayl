@@ -1,0 +1,81 @@
+# 24_full_reliability_example.yaml
+# A complete example combining Assertions AND Circuit Breaker for maximum test reliability.
+# This simulates a real-world API testing scenario with data validation.
+
+load:
+  duration: "2m"
+  rate: 20
+  concurrency: 5
+  success_codes: [200, 201]
+  
+  # Circuit Breaker: Stop if things go wrong
+  stop_if: "errors > 15%"
+  min_samples: 50
+
+steps:
+  # Step 1: Authenticate and validate response structure
+  - name: "Get Auth Token"
+    url: "https://httpbin.org/post"
+    method: "POST"
+    headers:
+      Content-Type: "application/json"
+    body: '{"username": "testuser", "password": "testpass"}'
+    
+    # Validate the auth response
+    assertions:
+      - type: "json_path"
+        path: "json.username"
+        value: "testuser"
+        message: "Username must be echoed back correctly"
+      - type: "contains"
+        value: "origin"
+    
+    # Extract data for next step
+    extract:
+      origin_ip: "origin"
+
+  # Step 2: Make authenticated request with validation
+  - name: "Fetch User Data"
+    url: "https://httpbin.org/headers"
+    method: "GET"
+    headers:
+      X-Custom-Header: "Sayl-Test"
+      X-Origin-IP: "{{origin_ip}}"
+    
+    assertions:
+      # Verify our custom header was received
+      - type: "json_path"
+        path: "headers.X-Custom-Header"
+        value: "Sayl-Test"
+      # Verify response structure
+      - type: "regex"
+        value: "Host.*httpbin"
+
+  # Step 3: Data modification with strict validation
+  - name: "Update Settings"
+    url: "https://httpbin.org/put"
+    method: "PUT"
+    headers:
+      Content-Type: "application/json"
+    body: '{"setting": "dark_mode", "value": true}'
+    
+    assertions:
+      - type: "json_path"
+        path: "json.setting"
+        value: "dark_mode"
+      - type: "contains"
+        value: "true"
+
+# What this test validates:
+# ✅ API responds with correct status codes
+# ✅ Response bodies contain expected data
+# ✅ JSON structure matches expectations
+# ✅ Regex patterns for flexible matching
+# ✅ Auto-stops if >15% requests fail (after 50 samples)
+#
+# The report will show:
+# - Network failures (timeouts, connection errors)
+# - Assertion failures (data validation errors) <- SEPARATE!
+# - Circuit breaker status (if tripped)
+
+# Run: ./sayl -config "Examples of yaml files/24_full_reliability_example.yaml"

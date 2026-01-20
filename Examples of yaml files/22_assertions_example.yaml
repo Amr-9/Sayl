@@ -1,0 +1,65 @@
+# 22_assertions_example.yaml
+# Demonstrates Response Assertions for validating API responses during load testing.
+# Assertions check response body content AFTER the request completes.
+# If an assertion fails, the request counts as a failure (separate from network errors).
+
+load:
+  duration: "30s"
+  rate: 10
+  concurrency: 2
+  success_codes: [200, 201]
+
+steps:
+  # Example 1: Simple contains assertion
+  - name: "Health Check"
+    url: "https://httpbin.org/get"
+    method: "GET"
+    assertions:
+      # Check that the response contains a specific string
+      - type: "contains"
+        value: "httpbin.org"
+        message: "Response must mention httpbin.org"
+
+  # Example 2: Regex assertion
+  - name: "Validate UUID Pattern"
+    url: "https://httpbin.org/uuid"
+    method: "GET"
+    assertions:
+      # Check that response matches a UUID pattern
+      - type: "regex"
+        value: "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+        message: "Response must contain a valid UUID"
+
+  # Example 3: JSON Path assertion
+  - name: "Validate JSON Structure"
+    url: "https://httpbin.org/json"
+    method: "GET"
+    assertions:
+      # Check that a JSON path exists
+      - type: "json_path"
+        path: "slideshow.title"
+        value: "Sample Slide Show"
+        message: "JSON must have correct slideshow title"
+      
+      # Check another field exists (value check is optional)
+      - type: "json_path"
+        path: "slideshow.author"
+
+  # Example 4: Multiple assertions on one step
+  - name: "Full Validation"
+    url: "https://httpbin.org/post"
+    method: "POST"
+    headers:
+      Content-Type: "application/json"
+    body: '{"test": "data", "number": 42}'
+    assertions:
+      # All assertions must pass for the request to be considered successful
+      - type: "contains"
+        value: "test"
+      - type: "json_path"
+        path: "json.number"
+        value: "42"
+      - type: "regex"
+        value: "origin.*[0-9]+\\.[0-9]+"
+
+# Run: ./sayl -config "Examples of yaml files/22_assertions_example.yaml"

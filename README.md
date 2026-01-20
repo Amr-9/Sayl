@@ -777,14 +777,23 @@ Inject random/dynamic data anywhere in your configuration using `{{variable}}` s
 | `{{random_alphanum}}` | 10-char alphanumeric | `aZ9xK2mNpQ` |
 | `{{timestamp}}` | Unix timestamp (seconds) | `1705632847` |
 | `{{timestamp_ms}}` | Unix timestamp (milliseconds) | `1705632847123` |
+| `{{iso8601}}` | Current time in ISO8601/RFC3339 | `2024-01-20T12:34:56Z` |
+| `{{random_bool}}` | Random boolean | `true` or `false` |
+| `{{random_float}}` | Random float (0.0-1.0) | `0.423917` |
+| `{{random_ipv4}}` | Random IPv4 address | `192.168.45.123` |
+| `{{random_mac}}` | Random MAC address | `0A:1B:2C:3D:4E:5F` |
+| `{{random_color}}` | Random hex color code | `#ff5733` |
+| `{{random_password}}` | Random strong password (12 chars) | `A1b!xK9m#pQz` |
+| `{{random_country}}` | Random ISO 3166-1 alpha-2 code | `EG`, `US`, `GB` |
+| `{{random_user_agent}}` | Random browser User-Agent | `Mozilla/5.0 (Windows NT 10.0...` |
 
 ### Dynamic Length Generators
 
 | Variable | Description | Example Output |
 | :--- | :--- | :--- |
-| `{{random_digits_5}}` | 5 random digits | `48293` |
-| `{{random_digits_10}}` | 10 random digits | `4829316745` |
-| `{{random_digits_N}}` | N random digits (max 20) | `...` |
+| `{{random_digits_N}}` | N random digits (max 20) | `4829316745` |
+| `{{random_hex_N}}` | N random hex chars (max 64) | `a3f1b9c2` |
+| `{{random_alphanum_N}}` | N alphanumeric chars (max 64) | `aZ9xK2mNpQ` |
 
 ### Usage Examples
 
@@ -796,6 +805,8 @@ url: "https://api.example.com/users/{{uuid}}"
 headers:
   X-Request-ID: "req-{{timestamp_ms}}"
   X-Correlation-ID: "{{uuid}}"
+  User-Agent: "{{random_user_agent}}"
+  X-Forwarded-For: "{{random_ipv4}}"
 
 # In Body
 body: |
@@ -804,7 +815,10 @@ body: |
     "phone": "{{random_phone}}",
     "order_id": "ORD-{{random_digits_8}}",
     "session": "{{uuid}}",
-    "created_at": {{timestamp}}
+    "token": "{{random_hex_32}}",
+    "is_active": {{random_bool}},
+    "score": {{random_float}},
+    "created_at": "{{iso8601}}"
   }
 ```
 

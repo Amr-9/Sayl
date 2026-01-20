@@ -7,9 +7,19 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Amr-9/sayl/internal/circuitbreaker"
+	"github.com/Amr-9/sayl/internal/validator"
 	"github.com/Amr-9/sayl/pkg/models"
 	"gopkg.in/yaml.v3"
 )
+
+// YAMLAssertion represents an assertion in YAML format
+type YAMLAssertion struct {
+	Type    string `yaml:"type"`              // contains, regex, json_path
+	Value   string `yaml:"value"`             // Expected value or pattern
+	Path    string `yaml:"path,omitempty"`    // JSON path (for json_path type)
+	Message string `yaml:"message,omitempty"` // Custom error message
+}
 
 // YAMLConfig represents the structure of the YAML configuration file.
 type YAMLConfig struct {
@@ -30,22 +40,25 @@ type YAMLConfig struct {
 		Rate         int    `yaml:"rate,omitempty"`
 		Concurrency  int    `yaml:"concurrency,omitempty"`
 		SuccessCodes []int  `yaml:"success_codes,omitempty"`
+		StopIf       string `yaml:"stop_if,omitempty"`     // Circuit breaker: "errors > 10%"
+		MinSamples   int64  `yaml:"min_samples,omitempty"` // Min samples before circuit breaker can trip
 		Stages       []struct {
 			Duration string `yaml:"duration"`
 			Target   int    `yaml:"target"`
 		} `yaml:"stages,omitempty"`
 	} `yaml:"load"`
 	Steps []struct {
-		Name      string            `yaml:"name"`
-		URL       string            `yaml:"url"`
-		Method    string            `yaml:"method"`
-		Headers   map[string]string `yaml:"headers,omitempty"`
-		Body      string            `yaml:"body,omitempty"`
-		BodyFile  string            `yaml:"body_file,omitempty"`
-		BodyJSON  interface{}       `yaml:"body_json,omitempty"`
-		Extract   map[string]string `yaml:"extract,omitempty"`
-		Variables map[string]string `yaml:"variables,omitempty"`
-		Save      map[string]string `yaml:"save,omitempty"` // Alias for variables
+		Name       string            `yaml:"name"`
+		URL        string            `yaml:"url"`
+		Method     string            `yaml:"method"`
+		Headers    map[string]string `yaml:"headers,omitempty"`
+		Body       string            `yaml:"body,omitempty"`
+		BodyFile   string            `yaml:"body_file,omitempty"`
+		BodyJSON   interface{}       `yaml:"body_json,omitempty"`
+		Extract    map[string]string `yaml:"extract,omitempty"`
+		Variables  map[string]string `yaml:"variables,omitempty"`
+		Save       map[string]string `yaml:"save,omitempty"` // Alias for variables
+		Assertions []YAMLAssertion   `yaml:"assertions,omitempty"`
 	} `yaml:"steps,omitempty"`
 	Data []struct {
 		Name string `yaml:"name"`
@@ -107,14 +120,38 @@ func LoadConfig(path string) (*models.Config, error) {
 				bodyData = b
 			}
 
+			// Convert YAML assertions to model assertions
+			var assertions []models.Assertion
+			for _, a := range s.Assertions {
+				assertion := models.Assertion{
+					Type:    models.AssertionType(a.Type),
+					Value:   a.Value,
+					Path:    a.Path,
+					Message: a.Message,
+				}
+				// Default to "contains" if type not specified
+				if assertion.Type == "" {
+					assertion.Type = models.AssertContains
+				}
+				assertions = append(assertions, assertion)
+			}
+
+			// Pre-compile regex patterns for performance
+			if len(assertions) > 0 {
+				if err := validator.CompileAssertions(assertions); err != nil {
+					return nil, fmt.Errorf("step '%s': %w", s.Name, err)
+				}
+			}
+
 			cfg.Steps = append(cfg.Steps, models.Step{
-				Name:      s.Name,
-				URL:       s.URL,
-				Method:    s.Method,
-				Headers:   s.Headers,
-				Body:      string(bodyData),
-				Extract:   s.Extract,
-				Variables: vars,
+				Name:       s.Name,
+				URL:        s.URL,
+				Method:     s.Method,
+				Headers:    s.Headers,
+				Body:       string(bodyData),
+				Extract:    s.Extract,
+				Variables:  vars,
+				Assertions: assertions,
 			})
 		}
 	}
@@ -186,16 +223,37 @@ func LoadConfig(path string) (*models.Config, error) {
 		}
 	}
 
+	// Handle Circuit Breaker
+	if yamlCfg.Load.StopIf != "" {
+		cfg.CircuitBreaker = &models.CircuitBreaker{
+			StopIf:     yamlCfg.Load.StopIf,
+			MinSamples: yamlCfg.Load.MinSamples,
+		}
+		// Parse and validate the condition
+		if err := circuitbreaker.ParseCondition(cfg.CircuitBreaker); err != nil {
+			return nil, fmt.Errorf("invalid circuit breaker: %w", err)
+		}
+		// Set default min_samples if not specified
+		if cfg.CircuitBreaker.MinSamples <= 0 {
+			cfg.CircuitBreaker.MinSamples = 100 // Cold start protection
+		}
+	}
+
 	return cfg, nil
 }
 
 // Validate checks if the configuration is valid so we can start running immediately.
+// Returns detailed errors with suggestions for fixing issues.
 func Validate(cfg *models.Config) error {
-	var errors []string
+	result := &ValidationResult{}
 
 	// Target Validation
 	if cfg.URL == "" && len(cfg.Steps) == 0 {
-		errors = append(errors, "missing target URL or scenario steps (target.url or steps)")
+		result.Add(ValidationError{
+			Field:   "target.url",
+			Message: "missing required field",
+			Hint:    GetHint("target.url"),
+		})
 	}
 
 	if cfg.Method == "" {
@@ -203,7 +261,19 @@ func Validate(cfg *models.Config) error {
 			cfg.Method = "GET" // Default for single target
 		}
 	} else {
-		// specialized validation if needed for method
+		// Validate HTTP method
+		if valid, suggestion := ValidateHTTPMethod(cfg.Method); !valid {
+			err := ValidationError{
+				Field:    "target.method",
+				Value:    cfg.Method,
+				Message:  "invalid HTTP method",
+				Expected: "GET, POST, PUT, DELETE, PATCH, HEAD, or OPTIONS",
+			}
+			if suggestion != "" {
+				err.DidYouMean = suggestion
+			}
+			result.Add(err)
+		}
 	}
 
 	// Load Profile Validation
@@ -211,24 +281,81 @@ func Validate(cfg *models.Config) error {
 		// Stages validation
 		for i, stage := range cfg.Stages {
 			if stage.Duration <= 0 {
-				errors = append(errors, fmt.Sprintf("stage %d duration must be > 0", i+1))
+				result.Add(ValidationError{
+					Field:    fmt.Sprintf("load.stages[%d].duration", i),
+					Message:  "duration must be greater than 0",
+					Expected: "duration string with unit (e.g., '30s', '1m')",
+					Hint:     "Each stage needs a positive duration",
+				})
 			}
 			if stage.Target < 0 {
-				errors = append(errors, fmt.Sprintf("stage %d target rate must be >= 0", i+1))
+				result.Add(ValidationError{
+					Field:    fmt.Sprintf("load.stages[%d].target", i),
+					Value:    fmt.Sprintf("%d", stage.Target),
+					Message:  "target rate cannot be negative",
+					Expected: "non-negative integer (0 or greater)",
+					Hint:     "Use target: 0 to stop traffic at end of test",
+				})
 			}
 		}
 	} else {
 		// Fixed rate validation
 		if cfg.Rate <= 0 {
-			errors = append(errors, "rate must be greater than 0 (load.rate)")
+			result.Add(ValidationError{
+				Field:    "load.rate",
+				Value:    fmt.Sprintf("%d", cfg.Rate),
+				Message:  "rate must be greater than 0",
+				Expected: "positive integer (e.g., 100)",
+				Hint:     GetHint("load.rate"),
+			})
 		}
 		if cfg.Duration <= 0 {
-			errors = append(errors, "duration must be greater than 0 (load.duration)")
+			result.Add(ValidationError{
+				Field:    "load.duration",
+				Message:  "missing or invalid duration",
+				Expected: "duration string with unit",
+				Hint:     GetHint("load.duration"),
+			})
 		}
 	}
 
 	if cfg.Concurrency <= 0 {
-		errors = append(errors, "concurrency must be greater than 0 (load.concurrency)")
+		result.Add(ValidationError{
+			Field:    "load.concurrency",
+			Value:    fmt.Sprintf("%d", cfg.Concurrency),
+			Message:  "concurrency must be greater than 0",
+			Expected: "positive integer (e.g., 10)",
+			Hint:     GetHint("load.concurrency"),
+		})
+	}
+
+	// Validate Steps
+	for i, step := range cfg.Steps {
+		if step.URL == "" {
+			result.Add(ValidationError{
+				Field:   fmt.Sprintf("steps[%d].url", i),
+				Message: "missing required URL",
+				Hint:    "Each step must have a URL to request",
+			})
+		}
+		if step.Method == "" {
+			result.Add(ValidationError{
+				Field:   fmt.Sprintf("steps[%d].method", i),
+				Message: "missing required HTTP method",
+				Hint:    "Specify method: GET, POST, PUT, DELETE, etc.",
+			})
+		} else if valid, suggestion := ValidateHTTPMethod(step.Method); !valid {
+			err := ValidationError{
+				Field:    fmt.Sprintf("steps[%d].method", i),
+				Value:    step.Method,
+				Message:  "invalid HTTP method",
+				Expected: "GET, POST, PUT, DELETE, PATCH, HEAD, or OPTIONS",
+			}
+			if suggestion != "" {
+				err.DidYouMean = suggestion
+			}
+			result.Add(err)
+		}
 	}
 
 	// Set default success code if none provided
@@ -236,8 +363,8 @@ func Validate(cfg *models.Config) error {
 		cfg.SuccessCodes = map[int]bool{200: true}
 	}
 
-	if len(errors) > 0 {
-		return fmt.Errorf("configuration errors:\n- %s", dumpErrors(errors))
+	if result.HasErrors() {
+		return fmt.Errorf("%s", result.FormatErrors())
 	}
 
 	return nil
