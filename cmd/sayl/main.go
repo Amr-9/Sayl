@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Amr-9/sayl/internal/report"
@@ -17,8 +20,35 @@ import (
 )
 
 func main() {
+	// Panic recovery - prevent crashes
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("\n❌ Fatal error: %v\n", r)
+			fmt.Println("💡 Please report this issue at: https://github.com/Amr-9/sayl/issues")
+			os.Exit(1)
+		}
+	}()
+
 	// Use all available CPU cores for maximum performance
 	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	// Setup graceful shutdown context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle interrupt signals (Ctrl+C, SIGTERM)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		fmt.Println("\n\n⚠️  Received interrupt signal, shutting down gracefully...")
+		cancel()
+		// Give a moment for cleanup
+		time.Sleep(500 * time.Millisecond)
+	}()
+
+	// Store context for TUI to use
+	_ = ctx // Will be passed to TUI in future enhancement
 
 	// Define command-line flags
 	var (
@@ -136,14 +166,29 @@ func main() {
 	}
 }
 
-func saveReport(path string, report models.Report) error {
+func saveReport(path string, rep models.Report) error {
 	f, err := os.Create(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create report file '%s': %w", path, err)
 	}
-	defer f.Close()
 
 	encoder := json.NewEncoder(f)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(report)
+
+	if err := encoder.Encode(rep); err != nil {
+		f.Close()
+		return fmt.Errorf("failed to encode report: %w", err)
+	}
+
+	// Sync to ensure data is written to disk
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return fmt.Errorf("failed to sync report file: %w", err)
+	}
+
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("failed to close report file: %w", err)
+	}
+
+	return nil
 }

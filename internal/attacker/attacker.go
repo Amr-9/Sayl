@@ -17,16 +17,87 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// RetryConfig holds retry settings
+type RetryConfig struct {
+	MaxRetries int
+	RetryDelay time.Duration
+}
+
 // Engine implements the load testing logic
 type Engine struct {
 	client *http.Client
 	vp     *VariableProcessor
+	retry  RetryConfig
+}
+
+// DefaultRetryConfig returns reasonable defaults for retries
+func DefaultRetryConfig() RetryConfig {
+	return RetryConfig{
+		MaxRetries: 3,
+		RetryDelay: 100 * time.Millisecond,
+	}
 }
 
 func NewEngine() *Engine {
 	return &Engine{
-		vp: NewVariableProcessor(),
+		vp:    NewVariableProcessor(),
+		retry: DefaultRetryConfig(),
 	}
+}
+
+// PreflightCheck verifies that the target is reachable before starting the load test
+func (e *Engine) PreflightCheck(url string, timeout time.Duration) error {
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	req, err := http.NewRequest("HEAD", url, nil)
+	if err != nil {
+		// Try with GET if HEAD fails to create
+		req, err = http.NewRequest("GET", url, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+	}
+	req.Header.Set("User-Agent", "Sayl/1.0 Preflight")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("target unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Drain the body to allow connection reuse
+	io.Copy(io.Discard, resp.Body)
+
+	return nil
+}
+
+// isRetryableError checks if an error is worth retrying
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	retryablePatterns := []string{
+		"timeout",
+		"connection reset",
+		"connection refused",
+		"no such host",
+		"EOF",
+		"i/o timeout",
+		"TLS handshake timeout",
+	}
+	for _, pattern := range retryablePatterns {
+		if strings.Contains(strings.ToLower(errStr), strings.ToLower(pattern)) {
+			return true
+		}
+	}
+	return false
 }
 
 // Attack starts the load test
@@ -140,7 +211,7 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 
 					// Execute scenario steps
 					for _, step := range steps {
-						result := e.executeStep(ctx, step, session)
+						result := e.executeStepWithRetry(ctx, step, session)
 
 						// Send result
 						select {
@@ -273,4 +344,41 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 		Status:    resp.StatusCode,
 		Bytes:     written,
 	}
+}
+
+// executeStepWithRetry wraps executeStep with automatic retry logic for transient errors
+func (e *Engine) executeStepWithRetry(ctx context.Context, step models.Step, session map[string]string) models.Result {
+	var result models.Result
+
+	for attempt := 0; attempt <= e.retry.MaxRetries; attempt++ {
+		// Check if context is cancelled before attempt
+		select {
+		case <-ctx.Done():
+			return models.Result{
+				Timestamp: time.Now(),
+				Error:     ctx.Err(),
+			}
+		default:
+		}
+
+		result = e.executeStep(ctx, step, session)
+
+		// If successful or non-retryable error, return immediately
+		if result.Error == nil || !isRetryableError(result.Error) {
+			return result
+		}
+
+		// Don't sleep on the last attempt
+		if attempt < e.retry.MaxRetries {
+			// Exponential backoff: delay * 2^attempt
+			backoff := e.retry.RetryDelay * time.Duration(1<<attempt)
+			select {
+			case <-ctx.Done():
+				return result
+			case <-time.After(backoff):
+			}
+		}
+	}
+
+	return result
 }
