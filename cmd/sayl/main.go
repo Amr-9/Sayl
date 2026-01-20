@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Amr-9/sayl/internal/debug"
 	"github.com/Amr-9/sayl/internal/report"
 	"github.com/Amr-9/sayl/internal/tui"
 	"github.com/Amr-9/sayl/pkg/config"
@@ -59,6 +60,7 @@ func main() {
 		durationStr string
 		concurrency int
 		successStr  string
+		debugMode   bool
 	)
 
 	flag.StringVar(&configPath, "config", "", "Path to YAML configuration file")
@@ -69,6 +71,8 @@ func main() {
 	flag.StringVar(&durationStr, "duration", "", "Duration of the test (e.g., 10s, 1m)")
 	flag.IntVar(&concurrency, "concurrency", 0, "Number of concurrent workers")
 	flag.StringVar(&successStr, "success", "", "Comma-separated list of success status codes (e.g., 200,201)")
+	flag.BoolVar(&debugMode, "debug", false, "Run in debug mode (single iteration with detailed output)")
+	flag.BoolVar(&debugMode, "d", false, "Run in debug mode (shorthand)")
 
 	flag.Parse()
 
@@ -135,6 +139,24 @@ func main() {
 			os.Exit(1)
 		}
 		// Otherwise (no config file), fall back to TUI setup
+	}
+
+	// 4. Debug Mode - Run single iteration with detailed output (bypasses TUI)
+	if debugMode {
+		if !startRunning {
+			fmt.Println("❌ Debug mode requires a valid configuration.")
+			fmt.Println("💡 Please provide a config file: sayl -config scenario.yaml --debug")
+			os.Exit(1)
+		}
+
+		// Set debug flag on config
+		cfg.Debug = true
+
+		if err := debug.RunDebugMode(cfg); err != nil {
+			fmt.Printf("❌ Debug mode error: %v\n", err)
+			os.Exit(1)
+		}
+		return // Exit after debug mode completes
 	}
 
 	p := tea.NewProgram(tui.NewModel(cfg, startRunning))

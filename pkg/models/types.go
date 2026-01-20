@@ -53,6 +53,7 @@ type Config struct {
 	Steps          []Step            `json:"steps,omitempty"` // For chained scenarios
 	Data           []DataSource      `json:"data,omitempty"`  // distinct CSV data sources
 	CircuitBreaker *CircuitBreaker   `json:"circuit_breaker,omitempty"`
+	Debug          bool              `json:"-"` // Debug mode - run single iteration with detailed output
 }
 
 // DataSource defines a source of external data (e.g. CSV file)
