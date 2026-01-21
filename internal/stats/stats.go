@@ -121,11 +121,28 @@ func (m *Monitor) Add(res models.Result, isSuccess bool) {
 		m.errors.Store(errStr, count.(int)+1)
 	}
 
-	// Update latencies in microseconds
+	// Update latencies in microseconds ONLY if it's not a transport error
+	// We want to track latency for successful requests or server errors (e.g. 500),
+	// but NOT for immediate transport failures (e.g. dial tcp: refused) which skew min latency.
 	latencyUs := res.Latency.Microseconds()
-	m.mu.Lock()
-	_ = m.histogram.RecordValue(latencyUs)
-	m.mu.Unlock()
+
+	// If status is 0 and error is present, it's likely a transport error (timeout, connection refused etc)
+	// We might have set Status=1 for timeout above, so check original error presence mostly.
+	// Actually, simplified check: if we have a network error that prevented a response (Status < 100), skip latency.
+
+	// Better logic: Record latency only if we got a response (Status > 0) OR if it's a specific interesting error?
+	// The user specifically complained about 1ms min latency.
+	// Converting Timeout to Status 1 happens above.
+	// Let's rely on: if res.Error != nil, we generally don't trust the latency as "server response time".
+	// BUT, we might want to track how long it took to fail.
+	// The user's issue is "1ms" which implies immediate failure.
+	// Let's skip recording if error != nil.
+
+	if res.Error == nil {
+		m.mu.Lock()
+		_ = m.histogram.RecordValue(latencyUs)
+		m.mu.Unlock()
+	}
 
 	// Per-second tracking
 	second := int(time.Since(m.startTime).Seconds())
@@ -144,10 +161,12 @@ func (m *Monitor) Add(res models.Result, isSuccess bool) {
 	cnt, _ := bucket.statusCodes.LoadOrStore(res.Status, 0)
 	bucket.statusCodes.Store(res.Status, cnt.(int)+1)
 
-	// Update per-second histogram
-	bucket.mu.Lock()
-	_ = bucket.histogram.RecordValue(latencyUs)
-	bucket.mu.Unlock()
+	// Update per-second histogram if no error
+	if res.Error == nil {
+		bucket.mu.Lock()
+		_ = bucket.histogram.RecordValue(latencyUs)
+		bucket.mu.Unlock()
+	}
 }
 
 // GetStats returns current counters for circuit breaker checks

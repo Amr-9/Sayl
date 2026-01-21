@@ -1,12 +1,19 @@
 package attacker
 
 import (
+	"crypto/hmac"
+	"crypto/md5"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lucasjones/reggen"
 )
 
 // Pre-defined list of popular User-Agent strings for high performance
@@ -53,11 +60,149 @@ const (
 )
 
 // VariableProcessor handles the replacement of {{var}} in strings
-type VariableProcessor struct{}
+type VariableProcessor struct {
+	funcMap map[string]func([]string) string
+}
 
-// NewVariableProcessor creates a new processor
+// NewVariableProcessor creates a new processor with built-in functions
 func NewVariableProcessor() *VariableProcessor {
-	return &VariableProcessor{}
+	vp := &VariableProcessor{}
+	vp.initFuncMap()
+	return vp
+}
+
+func (vp *VariableProcessor) initFuncMap() {
+	vp.funcMap = map[string]func([]string) string{
+		// --- Crypto & Encoding ---
+		"hmac_sha256": func(args []string) string {
+			if len(args) != 2 {
+				return "ERROR:hmac_sha256_needs_2_args"
+			}
+			key := []byte(args[0])
+			data := []byte(args[1])
+			h := hmac.New(sha256.New, key)
+			h.Write(data)
+			return hex.EncodeToString(h.Sum(nil))
+		},
+		"base64_encode": func(args []string) string {
+			if len(args) != 1 {
+				return "ERROR:base64_encode_needs_1_arg"
+			}
+			return base64.StdEncoding.EncodeToString([]byte(args[0]))
+		},
+		"md5": func(args []string) string {
+			if len(args) != 1 {
+				return "ERROR:md5_needs_1_arg"
+			}
+			hash := md5.Sum([]byte(args[0]))
+			return hex.EncodeToString(hash[:])
+		},
+		"sha256": func(args []string) string {
+			if len(args) != 1 {
+				return "ERROR:sha256_needs_1_arg"
+			}
+			hash := sha256.Sum256([]byte(args[0]))
+			return hex.EncodeToString(hash[:])
+		},
+
+		// --- Advanced Time Travel ---
+		"time_future": func(args []string) string {
+			// args[0]: duration (e.g. "24h"), args[1]: format (optional, default RFC3339)
+			if len(args) < 1 {
+				return "ERROR:time_future_needs_duration"
+			}
+			dur, err := time.ParseDuration(args[0])
+			if err != nil {
+				return "ERROR:invalid_duration"
+			}
+			layout := time.RFC3339
+			if len(args) >= 2 {
+				layout = args[1]
+			}
+			return time.Now().Add(dur).Format(layout)
+		},
+		"time_past": func(args []string) string {
+			if len(args) < 1 {
+				return "ERROR:time_past_needs_duration"
+			}
+			dur, err := time.ParseDuration(args[0])
+			if err != nil {
+				return "ERROR:invalid_duration"
+			}
+			layout := time.RFC3339
+			if len(args) >= 2 {
+				layout = args[1]
+			}
+			return time.Now().Add(-dur).Format(layout)
+		},
+
+		// --- Logic & Selection ---
+		"random_choice": func(args []string) string {
+			if len(args) == 0 {
+				return ""
+			}
+			return args[rand.IntN(len(args))]
+		},
+		"random_int_range": func(args []string) string {
+			if len(args) != 2 {
+				return "ERROR:random_int_range_needs_min_max"
+			}
+			min, _ := strconv.Atoi(strings.TrimSpace(args[0]))
+			max, _ := strconv.Atoi(strings.TrimSpace(args[1]))
+			if max <= min {
+				return strconv.Itoa(min)
+			}
+			return strconv.Itoa(rand.IntN(max-min) + min)
+		},
+		"random_float_range": func(args []string) string {
+			// min, max, decimals (optional)
+			if len(args) < 2 {
+				return "ERROR:random_float_range_needs_min_max"
+			}
+			min, _ := strconv.ParseFloat(strings.TrimSpace(args[0]), 64)
+			max, _ := strconv.ParseFloat(strings.TrimSpace(args[1]), 64)
+			decimals := 2
+			if len(args) >= 3 {
+				d, err := strconv.Atoi(strings.TrimSpace(args[2]))
+				if err == nil {
+					decimals = d
+				}
+			}
+			val := min + rand.Float64()*(max-min)
+			format := fmt.Sprintf("%%.%df", decimals)
+			return fmt.Sprintf(format, val)
+		},
+
+		// --- String Manipulation ---
+		"random_string": func(args []string) string {
+			// length, charset (optional)
+			length := 10
+			if len(args) >= 1 {
+				if l, err := strconv.Atoi(args[0]); err == nil {
+					length = l
+				}
+			}
+			chars := alphanum
+			if len(args) >= 2 {
+				chars = args[1]
+			}
+			b := make([]byte, length)
+			for i := range b {
+				b[i] = chars[rand.IntN(len(chars))]
+			}
+			return string(b)
+		},
+		"regex_gen": func(args []string) string {
+			if len(args) != 1 {
+				return "ERROR:regex_gen_needs_pattern"
+			}
+			res, err := reggen.Generate(args[0], 10) // 10 is max length for repeats
+			if err != nil {
+				return "ERROR:regex_gen_failed"
+			}
+			return res
+		},
+	}
 }
 
 // Process replaces placeholders in the input string using the session map and dynamic generators.
@@ -86,10 +231,30 @@ func (vp *VariableProcessor) Process(input string, session map[string]string) st
 		}
 		end += start
 
+		// Append text before {{
 		sb.WriteString(input[lastIdx:start])
-		varName := strings.TrimSpace(input[start+2 : end])
-		val := vp.getValue(varName, session)
-		sb.WriteString(val)
+
+		content := strings.TrimSpace(input[start+2 : end])
+
+		// 1. Check Function Calls: e.g. "func(arg1, arg2)"
+		if idx := strings.IndexByte(content, '('); idx != -1 && strings.HasSuffix(content, ")") {
+			funcName := strings.TrimSpace(content[:idx])
+			argStr := content[idx+1 : len(content)-1]
+
+			// Simple argument parser (splits by comma, handles basic quotes)
+			args := parseArgs(argStr)
+
+			if f, ok := vp.funcMap[funcName]; ok {
+				sb.WriteString(f(args))
+			} else {
+				// Function not found, keep literal
+				sb.WriteString(input[start : end+2])
+			}
+		} else {
+			// 2. Variable or Legacy Generator
+			val := vp.getValue(content, session)
+			sb.WriteString(val)
+		}
 
 		i = end + 2
 		lastIdx = i
@@ -98,13 +263,54 @@ func (vp *VariableProcessor) Process(input string, session map[string]string) st
 	return sb.String()
 }
 
+// parseArgs splits a string by comma, respecting quotes (simple implementation)
+func parseArgs(s string) []string {
+	var args []string
+	var current strings.Builder
+	inQuote := false
+
+	for _, r := range s {
+		switch r {
+		case '"':
+			inQuote = !inQuote
+		case ',':
+			if !inQuote {
+				args = append(args, strings.TrimSpace(current.String()))
+				current.Reset()
+				continue
+			}
+			current.WriteRune(r)
+		default:
+			current.WriteRune(r)
+		}
+	}
+	if current.Len() > 0 {
+		args = append(args, strings.TrimSpace(current.String()))
+	} else if len(args) > 0 || (len(s) > 0 && s[len(s)-1] == ',') {
+		// Handle trailing comma or empty last arg case if needed,
+		// but for now just pushing the last buffer if non-empty
+		// Logic above handles "a,b" -> "a" then buffer="b". Pushing "b".
+	}
+
+	// Edge case for single empty arg? "func()" -> argStr="" -> loop doesn't run -> args nil. Correct.
+
+	// Post-process to remove surrounding quotes if present
+	for i, arg := range args {
+		if strings.HasPrefix(arg, "\"") && strings.HasSuffix(arg, "\"") && len(arg) >= 2 {
+			args[i] = arg[1 : len(arg)-1]
+		}
+	}
+
+	return args
+}
+
 func (vp *VariableProcessor) getValue(name string, session map[string]string) string {
 	// 1. Check Session
 	if val, ok := session[name]; ok {
 		return val
 	}
 
-	// 2. Check Dynamic Generators
+	// 2. Check Legacy Dynamic Generators (Keep for backward compatibility)
 	switch name {
 	case "uuid":
 		return uuid.New().String()
@@ -133,8 +339,6 @@ func (vp *VariableProcessor) getValue(name string, session map[string]string) st
 			b[i] = alphanum[rand.IntN(len(alphanum))]
 		}
 		return string(b)
-
-	// --- New Generators ---
 	case "random_bool":
 		if rand.IntN(2) == 0 {
 			return "false"
@@ -165,14 +369,13 @@ func (vp *VariableProcessor) getValue(name string, session map[string]string) st
 		for i := 4; i < 12; i++ {
 			pw[i] = allChars[rand.IntN(len(allChars))]
 		}
-		// Shuffle the password
 		rand.Shuffle(len(pw), func(i, j int) { pw[i], pw[j] = pw[j], pw[i] })
 		return string(pw)
 	case "random_country":
 		return countryCodes[rand.IntN(len(countryCodes))]
 	}
 
-	// 3. Check for parameterized patterns (optimized without regex)
+	// 3. Backward Compatibility Pattern Parsing (Legacy)
 	if strings.HasPrefix(name, "random_digits_") {
 		lengthStr := name[len("random_digits_"):]
 		length := parsePositiveInt(lengthStr, 10, 20)

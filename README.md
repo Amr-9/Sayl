@@ -13,8 +13,6 @@
   <img alt="Go" src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go">
   <img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=flat-square">
-  <img alt="Release" src="https://img.shields.io/github/v/release/Amr-9/sayl?style=flat-square&color=green">
-  <img alt="Stars" src="https://img.shields.io/github/stars/Amr-9/sayl?style=flat-square&color=yellow">
 </p>
 
 <p align="center">
@@ -794,6 +792,24 @@ Inject random/dynamic data anywhere in your configuration using `{{variable}}` s
 | `{{random_digits_N}}` | N random digits (max 20) | `4829316745` |
 | `{{random_hex_N}}` | N random hex chars (max 64) | `a3f1b9c2` |
 | `{{random_alphanum_N}}` | N alphanumeric chars (max 64) | `aZ9xK2mNpQ` |
+
+### ⚡ Functional Helpers (New!)
+
+Sayl supports powerful functional helpers for advanced data generation.
+
+| Category | Function | Description | Example |
+| :--- | :--- | :--- | :--- |
+| **Crypto** | `{{hmac_sha256(key, val)}}` | HMAC-SHA256 signature (hex) | `{{hmac_sha256(secret, body)}}` |
+| | `{{base64_encode(val)}}` | Base64 encode | `{{base64_encode(user:pass)}}` |
+| | `{{md5(val)}}` | MD5 hash (hex) | `{{md5(file_content)}}` |
+| | `{{sha256(val)}}` | SHA256 hash (hex) | `{{sha256(data)}}` |
+| **Time** | `{{time_future(dur, fmt)}}` | Future date. `dur`: 1h, 2m. `fmt`: optional layout | `{{time_future(24h)}}` |
+| | `{{time_past(dur, fmt)}}` | Past date. | `{{time_past(30m)}}` |
+| **Logic** | `{{random_choice(a, b)}}` | Pick random option | `{{random_choice(User, Admin)}}` |
+| | `{{random_int_range(min, max)}}` | Random int in range | `{{random_int_range(1, 10)}}` |
+| | `{{random_float_range(min, max, dec)}}` | Random float in range | `{{random_float_range(10, 50, 2)}}` |
+| **String** | `{{random_string(len, chars)}}` | Random string | `{{random_string(10, ABC)}}` |
+| | `{{regex_gen(pattern)}}` | **Killer Feature!** Generate data from Regex | `{{regex_gen(^01[0125][0-9]{8}$)}}` |
 
 ### Usage Examples
 

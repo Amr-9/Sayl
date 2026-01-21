@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/google/uuid v1.6.0
+	github.com/lucasjones/reggen v0.0.0-20200904144131-37ba4fa293bb
 	github.com/tidwall/gjson v1.18.0
 	golang.org/x/time v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
