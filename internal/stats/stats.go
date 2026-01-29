@@ -47,6 +47,7 @@ type Monitor struct {
 	statusCodes       sync.Map // map[int]int
 	errors            sync.Map // map[string]int (network/server errors)
 	assertionErrors   sync.Map // map[string]int (assertion failures)
+	protocolCounts    sync.Map // map[string]int (HTTP/1.1, HTTP/2.0)
 
 	totalBytes int64
 
@@ -119,6 +120,12 @@ func (m *Monitor) Add(res models.Result, isSuccess bool) {
 		errStr := sanitizeError(res.Error.Error())
 		count, _ := m.errors.LoadOrStore(errStr, 0)
 		m.errors.Store(errStr, count.(int)+1)
+	}
+
+	// Track protocol usage (HTTP/1.1, HTTP/2.0)
+	if res.Protocol != "" {
+		pCount, _ := m.protocolCounts.LoadOrStore(res.Protocol, 0)
+		m.protocolCounts.Store(res.Protocol, pCount.(int)+1)
 	}
 
 	// Update latencies in microseconds ONLY if it's not a transport error
@@ -286,6 +293,13 @@ func (m *Monitor) Snapshot() models.Report {
 		return true
 	})
 
+	// Collect protocol distribution
+	protocolMap := make(map[string]int)
+	m.protocolCounts.Range(func(key, value interface{}) bool {
+		protocolMap[key.(string)] = value.(int)
+		return true
+	})
+
 	return models.Report{
 		TotalRequests:     reqs,
 		SuccessCount:      succ,
@@ -305,6 +319,7 @@ func (m *Monitor) Snapshot() models.Report {
 		StatusCodes:       statusMap,
 		Errors:            errorMap,
 		AssertionErrors:   assertionErrorMap,
+		ProtocolCounts:    protocolMap,
 		TimeSeriesData:    timeSeriesData,
 	}
 }

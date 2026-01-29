@@ -45,6 +45,9 @@ type Config struct {
 	Timeout        time.Duration     `json:"timeout"`
 	Insecure       bool              `json:"insecure"`   // Skip TLS verification
 	KeepAlive      bool              `json:"keep_alive"` // Use keep-alive connections
+	HTTP2          bool              `json:"http2"`      // Enable HTTP/2 support
+	HTTP2Only      bool              `json:"http2_only"` // Force HTTP/2 only, fail if not supported
+	H2C            bool              `json:"h2c"`        // Enable HTTP/2 Cleartext (for non-TLS endpoints)
 	Duration       time.Duration     `json:"duration"`
 	Rate           int               `json:"rate"`        // Requests per second
 	Concurrency    int               `json:"concurrency"` // Number of workers
@@ -89,6 +92,7 @@ type Result struct {
 	Error          error  // Network/server error
 	AssertionError error  // Assertion failure (classified separately)
 	StepName       string // Name of the step for reporting
+	Protocol       string // HTTP protocol used ("HTTP/1.1", "HTTP/2.0")
 }
 
 // SecondStats captures metrics for a single second of the test
@@ -130,7 +134,8 @@ type Report struct {
 	Min                time.Duration  `json:"min"`
 	StatusCodes        map[string]int `json:"status_codes"`
 	Errors             map[string]int `json:"errors"`
-	AssertionErrors    map[string]int `json:"assertion_errors,omitempty"` // Assertion failures by message
+	AssertionErrors    map[string]int `json:"assertion_errors,omitempty"`    // Assertion failures by message
+	ProtocolCounts     map[string]int `json:"protocol_counts,omitempty"`     // Protocol distribution (HTTP/1.1, HTTP/2.0)
 	TimeSeriesData     []SecondStats  `json:"time_series_data"`
 	CircuitBroken      bool           `json:"circuit_broken,omitempty"`
 	CircuitBreakReason string         `json:"circuit_break_reason,omitempty"`

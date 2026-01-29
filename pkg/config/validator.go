@@ -70,7 +70,7 @@ func (v *ValidationResult) FormatErrors() string {
 }
 
 // Known valid field names for typo detection
-var validTargetFields = []string{"url", "method", "headers", "body", "body_file", "body_json", "timeout", "insecure", "keep_alive"}
+var validTargetFields = []string{"url", "method", "headers", "body", "body_file", "body_json", "timeout", "insecure", "keep_alive", "http2", "http2_only", "h2c"}
 var validLoadFields = []string{"duration", "rate", "concurrency", "success_codes", "stages"}
 var validStepFields = []string{"name", "url", "method", "headers", "body", "body_file", "body_json", "extract", "variables", "save"}
 var validHTTPMethods = []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
@@ -80,6 +80,9 @@ var fieldHints = map[string]string{
 	"target.url":         "Provide the full URL including protocol (e.g., https://api.example.com/v1/users)",
 	"target.method":      "HTTP method: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS",
 	"target.timeout":     "Request timeout with unit (e.g., '10s', '30s', '1m')",
+	"target.http2":       "Enable HTTP/2 support (true/false, default: true for HTTPS)",
+	"target.http2_only":  "Force HTTP/2 only - fail if server doesn't support it",
+	"target.h2c":         "Enable HTTP/2 Cleartext for non-TLS URLs (development/testing only)",
 	"load.duration":      "Test duration with unit (e.g., '30s', '2m', '1h')",
 	"load.rate":          "Requests per second as a positive integer (e.g., 100)",
 	"load.concurrency":   "Number of concurrent workers as a positive integer (e.g., 10)",

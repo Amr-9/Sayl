@@ -635,6 +635,15 @@ func PrintConsoleReport(r models.Report) {
 		}
 		fmt.Println()
 	}
+
+	if len(r.ProtocolCounts) > 0 {
+		fmt.Println("🌐 Protocol Distribution")
+		for proto, count := range r.ProtocolCounts {
+			pct := float64(count) / float64(r.TotalRequests) * 100
+			fmt.Printf("  [%s]:\t%d (%.1f%%)\n", proto, count, pct)
+		}
+		fmt.Println()
+	}
 }
 
 func formatBytes(b int64) string {

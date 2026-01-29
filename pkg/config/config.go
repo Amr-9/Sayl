@@ -33,6 +33,9 @@ type YAMLConfig struct {
 		Timeout   string            `yaml:"timeout,omitempty"`
 		Insecure  bool              `yaml:"insecure,omitempty"`
 		KeepAlive bool              `yaml:"keep_alive,omitempty"`
+		HTTP2     *bool             `yaml:"http2,omitempty"`      // Enable HTTP/2 (default: true for HTTPS)
+		HTTP2Only bool              `yaml:"http2_only,omitempty"` // Force HTTP/2 only
+		H2C       bool              `yaml:"h2c,omitempty"`        // HTTP/2 Cleartext
 	} `yaml:"target"`
 
 	Load struct {
@@ -87,6 +90,12 @@ func LoadConfig(path string) (*models.Config, error) {
 		concurrency = yamlCfg.Load.Workers
 	}
 
+	// Determine HTTP/2 setting (default true for HTTPS URLs)
+	http2Enabled := true
+	if yamlCfg.Target.HTTP2 != nil {
+		http2Enabled = *yamlCfg.Target.HTTP2
+	}
+
 	cfg := &models.Config{
 		URL:         yamlCfg.Target.URL,
 		Method:      yamlCfg.Target.Method,
@@ -95,6 +104,9 @@ func LoadConfig(path string) (*models.Config, error) {
 		Concurrency: concurrency,
 		Insecure:    yamlCfg.Target.Insecure,
 		KeepAlive:   yamlCfg.Target.KeepAlive,
+		HTTP2:       http2Enabled,
+		HTTP2Only:   yamlCfg.Target.HTTP2Only,
+		H2C:         yamlCfg.Target.H2C,
 	}
 
 	// Handle Steps
@@ -405,6 +417,9 @@ func SaveConfig(path string, cfg *models.Config) error {
 	}
 	yamlCfg.Target.Insecure = cfg.Insecure
 	yamlCfg.Target.KeepAlive = cfg.KeepAlive
+	yamlCfg.Target.HTTP2 = &cfg.HTTP2
+	yamlCfg.Target.HTTP2Only = cfg.HTTP2Only
+	yamlCfg.Target.H2C = cfg.H2C
 
 	if len(cfg.Stages) > 0 {
 		for _, s := range cfg.Stages {

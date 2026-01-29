@@ -15,6 +15,7 @@ import (
 	"github.com/Amr-9/sayl/internal/validator"
 	"github.com/Amr-9/sayl/pkg/models"
 	"github.com/tidwall/gjson"
+	"golang.org/x/net/http2"
 	"golang.org/x/time/rate"
 )
 
@@ -115,28 +116,55 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 		maxConns = 100
 	}
 
-	transport := &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: cfg.Insecure},
-		MaxIdleConns:        maxConns,
-		MaxIdleConnsPerHost: maxConns,
-		MaxConnsPerHost:     maxConns,
-		IdleConnTimeout:     90 * time.Second,
-		DisableKeepAlives:   !cfg.KeepAlive,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
+	var roundTripper http.RoundTripper
+
+	if cfg.H2C {
+		// HTTP/2 Cleartext (h2c) - for non-TLS HTTP/2 testing
+		roundTripper = &http2.Transport{
+			AllowHTTP: true,
+			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+				// For h2c, we dial plain TCP (no TLS)
+				return (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext(ctx, network, addr)
+			},
+		}
+	} else {
+		// Standard transport - HTTP/2 enabled by default with automatic fallback to HTTP/1.1
+		transport := &http.Transport{
+			TLSClientConfig:     &tls.Config{InsecureSkipVerify: cfg.Insecure},
+			MaxIdleConns:        maxConns,
+			MaxIdleConnsPerHost: maxConns,
+			MaxConnsPerHost:     maxConns,
+			IdleConnTimeout:     90 * time.Second,
+			DisableKeepAlives:   !cfg.KeepAlive,
+			ForceAttemptHTTP2:   cfg.HTTP2, // Default: true
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+		}
+
+		// Always configure HTTP/2 support (with automatic fallback to HTTP/1.1)
+		// This ensures proper HTTP/2 negotiation via ALPN
+		if cfg.HTTP2 {
+			_ = http2.ConfigureTransport(transport) // Ignore error - fallback to HTTP/1.1
+		}
+
+		if transport.ResponseHeaderTimeout == 0 && cfg.Timeout > 0 {
+			transport.ResponseHeaderTimeout = cfg.Timeout
+		}
+
+		roundTripper = transport
 	}
 
 	e.client = &http.Client{
 		Timeout:   cfg.Timeout,
-		Transport: transport,
+		Transport: roundTripper,
 	}
 	if e.client.Timeout == 0 {
 		e.client.Timeout = 30 * time.Second
-	}
-	if transport.ResponseHeaderTimeout == 0 {
-		transport.ResponseHeaderTimeout = e.client.Timeout
 	}
 
 	// Initialize Data Feeders
@@ -309,9 +337,12 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 	resp, err := e.client.Do(req)
 	latency := time.Since(start)
 	if err != nil {
-		return models.Result{Timestamp: start, Latency: latency, Error: err, StepName: step.Name}
+		return models.Result{Timestamp: start, Latency: latency, Error: err, StepName: step.Name, Protocol: ""}
 	}
 	defer resp.Body.Close()
+
+	// Capture the actual protocol used (HTTP/1.1, HTTP/2.0, etc.)
+	protocol := resp.Proto
 
 	// 3. Read Body (for size & extraction & assertions)
 	// If we need to extract OR validate assertions, we must read the whole body.
@@ -363,6 +394,7 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 		Bytes:          written,
 		AssertionError: assertionErr, // Separate from network errors!
 		StepName:       step.Name,
+		Protocol:       protocol,
 	}
 }
 

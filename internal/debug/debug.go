@@ -2,6 +2,7 @@ package debug
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/Amr-9/sayl/internal/validator"
 	"github.com/Amr-9/sayl/pkg/models"
 	"github.com/tidwall/gjson"
+	"golang.org/x/net/http2"
 )
 
 // ANSI color codes for terminal output
@@ -39,21 +41,44 @@ func RunDebugMode(cfg *models.Config) error {
 	fmt.Printf("%sRunning 1 iteration with 1 worker...%s\n\n", colorDim, colorReset)
 
 	// Create HTTP client with same settings as the real attacker
-	transport := &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: cfg.Insecure},
-		MaxIdleConns:        10,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-		DisableKeepAlives:   !cfg.KeepAlive,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
+	var roundTripper http.RoundTripper
+
+	if cfg.H2C {
+		// HTTP/2 Cleartext (h2c) - for non-TLS HTTP/2 testing
+		roundTripper = &http2.Transport{
+			AllowHTTP: true,
+			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+				return (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext(ctx, network, addr)
+			},
+		}
+	} else {
+		transport := &http.Transport{
+			TLSClientConfig:     &tls.Config{InsecureSkipVerify: cfg.Insecure},
+			MaxIdleConns:        10,
+			MaxIdleConnsPerHost: 10,
+			IdleConnTimeout:     90 * time.Second,
+			DisableKeepAlives:   !cfg.KeepAlive,
+			ForceAttemptHTTP2:   cfg.HTTP2, // Default: true
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+		}
+
+		// Always configure HTTP/2 support (with automatic fallback to HTTP/1.1)
+		if cfg.HTTP2 {
+			_ = http2.ConfigureTransport(transport)
+		}
+
+		roundTripper = transport
 	}
 
 	client := &http.Client{
 		Timeout:   cfg.Timeout,
-		Transport: transport,
+		Transport: roundTripper,
 	}
 	if client.Timeout == 0 {
 		client.Timeout = 30 * time.Second
@@ -263,6 +288,15 @@ func printRequest(req *http.Request, body string) {
 // printResponse prints the HTTP response details
 func printResponse(resp *http.Response, body []byte, latency time.Duration) {
 	fmt.Printf("\n%s[RESPONSE]%s\n", colorBold, colorReset)
+
+	// Protocol with color coding (HTTP/2 in green, HTTP/1.1 in cyan)
+	protoColor := colorCyan
+	if resp.Proto == "HTTP/2.0" {
+		protoColor = colorGreen
+	}
+	fmt.Printf("%sProtocol:%s %s%s%s\n",
+		colorDim, colorReset,
+		protoColor, resp.Proto, colorReset)
 
 	// Status with color coding
 	statusColor := colorGreen
