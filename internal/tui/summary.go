@@ -64,7 +64,7 @@ func (m *SummaryModel) View() string {
 	}
 
 	headerContent := styledLogo
-	headerContent += lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Italic(true).Render("  High-Performance Load Testing Tool • v0.1")
+	headerContent += lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Italic(true).Render("  High-Performance Load Testing Tool • v0.2")
 
 	s.WriteString(headerBoxStyle.Render(headerContent))
 	s.WriteString("\n\n")
