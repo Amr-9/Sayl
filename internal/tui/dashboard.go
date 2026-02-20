@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -223,13 +224,9 @@ func (m *DashModel) View() string {
 			sorted = append(sorted, kv{Code: k, Count: v})
 		}
 		// Sort by count descending
-		for i := 0; i < len(sorted); i++ {
-			for j := i + 1; j < len(sorted); j++ {
-				if sorted[i].Count < sorted[j].Count {
-					sorted[i], sorted[j] = sorted[j], sorted[i]
-				}
-			}
-		}
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].Count > sorted[j].Count
+		})
 
 		// Find max for bar scaling
 		maxCount := 0

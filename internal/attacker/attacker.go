@@ -1,7 +1,6 @@
 package attacker
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -85,23 +84,25 @@ func (e *Engine) PreflightCheck(url string, timeout time.Duration) error {
 	return nil
 }
 
+// retryablePatterns holds lowercase patterns for retryable errors — allocated once at startup.
+var retryablePatterns = []string{
+	"timeout",
+	"connection reset",
+	"connection refused",
+	"no such host",
+	"eof",
+	"i/o timeout",
+	"tls handshake timeout",
+}
+
 // isRetryableError checks if an error is worth retrying
 func isRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	errStr := err.Error()
-	retryablePatterns := []string{
-		"timeout",
-		"connection reset",
-		"connection refused",
-		"no such host",
-		"EOF",
-		"i/o timeout",
-		"TLS handshake timeout",
-	}
+	errStr := strings.ToLower(err.Error()) // lowercase once, not per pattern
 	for _, pattern := range retryablePatterns {
-		if strings.Contains(strings.ToLower(errStr), strings.ToLower(pattern)) {
+		if strings.Contains(errStr, pattern) {
 			return true
 		}
 	}
@@ -321,7 +322,7 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 	method := step.Method
 	bodyStr := e.vp.Process(step.Body, session)
 
-	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBufferString(bodyStr))
+	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(bodyStr))
 	if err != nil {
 		return models.Result{Timestamp: start, Latency: time.Since(start), Error: err, StepName: step.Name}
 	}

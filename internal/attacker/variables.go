@@ -208,11 +208,15 @@ func (vp *VariableProcessor) initFuncMap() {
 // Process replaces placeholders in the input string using the session map and dynamic generators.
 // It prioritizes session variables over dynamic ones.
 func (vp *VariableProcessor) Process(input string, session map[string]string) string {
+	if strings.IndexByte(input, '{') == -1 {
+		return input
+	}
 	if !strings.Contains(input, "{{") {
 		return input
 	}
 
 	var sb strings.Builder
+	sb.Grow(len(input)) // pre-allocate to avoid reallocs during template substitution
 	lastIdx := 0
 	inputLen := len(input)
 

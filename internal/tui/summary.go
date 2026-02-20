@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Amr-9/sayl/pkg/models"
@@ -180,13 +181,9 @@ func (m *SummaryModel) View() string {
 		for k, v := range m.report.StatusCodes {
 			sorted = append(sorted, kv{Code: k, Count: v})
 		}
-		for i := 0; i < len(sorted); i++ {
-			for j := i + 1; j < len(sorted); j++ {
-				if sorted[i].Count < sorted[j].Count {
-					sorted[i], sorted[j] = sorted[j], sorted[i]
-				}
-			}
-		}
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].Count > sorted[j].Count
+		})
 
 		maxCount := 0
 		for _, item := range sorted {
