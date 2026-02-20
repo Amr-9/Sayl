@@ -12,6 +12,20 @@ var (
 	reSinglePort = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+`)
 )
 
+// copyMapStringInt returns a shallow copy of a map[string]int.
+// Used by Snapshot() to prevent callers from holding a reference to the
+// pre-allocated snap maps that get cleared on the next Snapshot() call.
+func copyMapStringInt(src map[string]int) map[string]int {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]int, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
 func sanitizeError(err string) string {
 	// First, try to replace source->dest pairs
 	err = rePortPair.ReplaceAllString(err, "[CONN_TUPLE]")

@@ -32,7 +32,7 @@ type YAMLConfig struct {
 		BodyJSON  interface{}       `yaml:"body_json,omitempty"`
 		Timeout   string            `yaml:"timeout,omitempty"`
 		Insecure  bool              `yaml:"insecure,omitempty"`
-		KeepAlive bool              `yaml:"keep_alive,omitempty"`
+		KeepAlive *bool             `yaml:"keep_alive,omitempty"`
 		HTTP2     *bool             `yaml:"http2,omitempty"`      // Enable HTTP/2 (default: true for HTTPS)
 		HTTP2Only bool              `yaml:"http2_only,omitempty"` // Force HTTP/2 only
 		H2C       bool              `yaml:"h2c,omitempty"`        // HTTP/2 Cleartext
@@ -82,18 +82,22 @@ func LoadConfig(path string) (*models.Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	fmt.Printf("DEBUG: Loaded %d steps from config\n", len(yamlCfg.Steps))
-
 	// Use Workers as fallback for Concurrency
 	concurrency := yamlCfg.Load.Concurrency
 	if concurrency == 0 && yamlCfg.Load.Workers > 0 {
 		concurrency = yamlCfg.Load.Workers
 	}
 
-	// Determine HTTP/2 setting (default true for HTTPS URLs)
+	// Determine HTTP/2 setting (default true)
 	http2Enabled := true
 	if yamlCfg.Target.HTTP2 != nil {
 		http2Enabled = *yamlCfg.Target.HTTP2
+	}
+
+	// Determine KeepAlive setting (default true)
+	keepAlive := true
+	if yamlCfg.Target.KeepAlive != nil {
+		keepAlive = *yamlCfg.Target.KeepAlive
 	}
 
 	cfg := &models.Config{
@@ -103,7 +107,7 @@ func LoadConfig(path string) (*models.Config, error) {
 		Rate:        yamlCfg.Load.Rate,
 		Concurrency: concurrency,
 		Insecure:    yamlCfg.Target.Insecure,
-		KeepAlive:   yamlCfg.Target.KeepAlive,
+		KeepAlive:   keepAlive,
 		HTTP2:       http2Enabled,
 		HTTP2Only:   yamlCfg.Target.HTTP2Only,
 		H2C:         yamlCfg.Target.H2C,
@@ -416,7 +420,7 @@ func SaveConfig(path string, cfg *models.Config) error {
 		yamlCfg.Target.Timeout = cfg.Timeout.String()
 	}
 	yamlCfg.Target.Insecure = cfg.Insecure
-	yamlCfg.Target.KeepAlive = cfg.KeepAlive
+	yamlCfg.Target.KeepAlive = &cfg.KeepAlive
 	yamlCfg.Target.HTTP2 = &cfg.HTTP2
 	yamlCfg.Target.HTTP2Only = cfg.HTTP2Only
 	yamlCfg.Target.H2C = cfg.H2C

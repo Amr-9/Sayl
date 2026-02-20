@@ -27,6 +27,7 @@ type MainModel struct {
 	config   models.Config
 	report   models.Report
 	results  chan models.Result
+	drainDone chan struct{} // closed by processResults when the channel is fully drained
 	quitting bool
 
 	// Phases
@@ -46,6 +47,8 @@ func NewModel(cfg *models.Config, startRunning bool) MainModel {
 			Duration:     10 * time.Second,
 			Concurrency:  10,
 			SuccessCodes: map[int]bool{200: true},
+			HTTP2:        true,
+			KeepAlive:    true,
 		}
 	} else if len(cfg.SuccessCodes) == 0 {
 		cfg.SuccessCodes = map[int]bool{200: true}
@@ -73,6 +76,7 @@ func NewModel(cfg *models.Config, startRunning bool) MainModel {
 		}
 
 		m.results = make(chan models.Result, 10000)
+		m.drainDone = make(chan struct{})
 		m.monitor = stats.NewMonitor()
 		// History can be empty or populated from config if we want
 		m.dashModel = NewDashModel(m.config, []string{"Loaded from config/flags"})
@@ -171,6 +175,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				m.state = StateRunning
 				m.results = make(chan models.Result, 10000)
+				m.drainDone = make(chan struct{})
 				m.monitor = stats.NewMonitor()
 				m.dashModel = NewDashModel(m.config, history)
 
@@ -227,12 +232,17 @@ func (m MainModel) startAttacking() tea.Cmd {
 		defer cancel()
 
 		engine.Attack(ctx, m.config, m.results)
+		// Attack() has returned and closed m.results. Wait for processResults to
+		// drain every buffered result before we signal the UI to switch to summary.
+		<-m.drainDone
 		return finishedMsg{}
 	}
 }
 
 func (m MainModel) processResults() tea.Cmd {
 	return func() tea.Msg {
+		// Defer ensures drainDone is always closed even if a panic occurs.
+		defer close(m.drainDone)
 		for res := range m.results {
 			isSuccess := m.config.SuccessCodes[res.Status] && res.Error == nil
 			m.monitor.Add(res, isSuccess)

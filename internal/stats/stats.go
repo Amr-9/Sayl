@@ -59,6 +59,10 @@ type secondBucket struct {
 	cumulative *hdrhistogram.Histogram
 }
 
+// maxErrorBuckets caps the number of unique error messages tracked to prevent
+// unbounded memory growth during long tests against misconfigured servers.
+const maxErrorBuckets = 100
+
 // Monitor handles real-time metrics collection.
 type Monitor struct {
 	// Atomic counters — lock-free hot path.
@@ -70,6 +74,7 @@ type Monitor struct {
 	// sync.Map values are *atomic.Int64 for true atomic increments.
 	statusCodes     sync.Map // map[int]*atomic.Int64
 	errors          sync.Map // map[string]*atomic.Int64
+	uniqueErrorCount atomic.Int64 // number of distinct keys in errors map
 	assertionErrors sync.Map // map[string]*atomic.Int64
 	protocolCounts  sync.Map // map[string]*atomic.Int64
 
@@ -86,8 +91,12 @@ type Monitor struct {
 
 	startTime time.Time
 
-	secondBuckets []*secondBucket
-	bucketMu      sync.RWMutex
+	// Ring buffer for per-second buckets. Caps memory at O(bucketWindow) instead
+	// of O(elapsed_seconds). A 1-hour test at ~150KB/bucket would otherwise use ~540MB.
+	bucketRing    []*secondBucket
+	bucketRingCap int
+	bucketTotal   int // total seconds elapsed since startTime
+	bucketMu      sync.Mutex
 
 	// Pre-allocated snapshot buffers — reused on every Snapshot() call to
 	// eliminate repeated heap allocations (previously 5 fresh maps every 100ms).
@@ -98,7 +107,20 @@ type Monitor struct {
 	snapTimeSeries   []models.SecondStats
 }
 
+const bucketWindow = 300 // keep the last 300 seconds of per-second data
+
 func NewMonitor() *Monitor {
+	// Pre-allocate all ring slots so getOrCreateBucket never allocates in the hot path.
+	ring := make([]*secondBucket, bucketWindow)
+	for i := range ring {
+		ring[i] = &secondBucket{
+			histograms: [2]*hdrhistogram.Histogram{
+				hdrhistogram.New(1, 30000000, 3),
+				hdrhistogram.New(1, 30000000, 3),
+			},
+			cumulative: hdrhistogram.New(1, 30000000, 3),
+		}
+	}
 	return &Monitor{
 		startTime: time.Now(),
 		histograms: [2]*hdrhistogram.Histogram{
@@ -106,13 +128,14 @@ func NewMonitor() *Monitor {
 			hdrhistogram.New(1, 30000000, 3),
 		},
 		cumulative:    hdrhistogram.New(1, 30000000, 3),
-		secondBuckets: make([]*secondBucket, 0),
+		bucketRing:    ring,
+		bucketRingCap: bucketWindow,
 		// Pre-allocate with reasonable initial capacities.
 		snapStatusMap:    make(map[string]int, 8),
 		snapErrorMap:     make(map[string]int, 16),
 		snapAssertionMap: make(map[string]int, 16),
 		snapProtocolMap:  make(map[string]int, 4),
-		snapTimeSeries:   make([]models.SecondStats, 0, 300),
+		snapTimeSeries:   make([]models.SecondStats, 0, bucketWindow),
 	}
 }
 
@@ -120,16 +143,27 @@ func (m *Monitor) getOrCreateBucket(second int) *secondBucket {
 	m.bucketMu.Lock()
 	defer m.bucketMu.Unlock()
 
-	for len(m.secondBuckets) <= second {
-		m.secondBuckets = append(m.secondBuckets, &secondBucket{
-			histograms: [2]*hdrhistogram.Histogram{
-				hdrhistogram.New(1, 30000000, 3),
-				hdrhistogram.New(1, 30000000, 3),
-			},
-			cumulative: hdrhistogram.New(1, 30000000, 3),
-		})
+	// Advance bucketTotal to cover any seconds we haven't seen yet.
+	// Each new slot is reset before use so recycled buckets start clean.
+	for m.bucketTotal <= second {
+		slot := m.bucketTotal % m.bucketRingCap
+		b := m.bucketRing[slot]
+		// Reset all counters and histograms for this recycled slot.
+		atomic.StoreInt64(&b.requests, 0)
+		atomic.StoreInt64(&b.success, 0)
+		atomic.StoreInt64(&b.fail, 0)
+		atomic.StoreInt64(&b.totalLatency, 0)
+		atomic.StoreInt64(&b.totalBytes, 0)
+		b.statusCodes = sync.Map{}
+		b.histMu.Lock()
+		b.histograms[0].Reset()
+		b.histograms[1].Reset()
+		b.cumulative.Reset()
+		b.activeHist.Store(0)
+		b.histMu.Unlock()
+		m.bucketTotal++
 	}
-	return m.secondBuckets[second]
+	return m.bucketRing[second%m.bucketRingCap]
 }
 
 // Add records a single result. Called from a single goroutine (processResults).
@@ -159,7 +193,24 @@ func (m *Monitor) Add(res models.Result, isSuccess bool) {
 	syncMapInc(&m.statusCodes, res.Status)
 
 	if res.Error != nil {
-		syncMapInc(&m.errors, sanitizeError(res.Error.Error()))
+		sanitized := sanitizeError(res.Error.Error())
+		if _, loaded := m.errors.Load(sanitized); loaded {
+			// Fast path: key already exists, just increment.
+			syncMapInc(&m.errors, sanitized)
+		} else if m.uniqueErrorCount.Load() < maxErrorBuckets {
+			// New key under cap — insert atomically.
+			newVal := &atomic.Int64{}
+			newVal.Store(1)
+			if _, existed := m.errors.LoadOrStore(sanitized, newVal); existed {
+				// Another goroutine beat us; increment the existing counter.
+				syncMapInc(&m.errors, sanitized)
+			} else {
+				m.uniqueErrorCount.Add(1)
+			}
+		} else {
+			// Over cap — fold into "other" bucket to bound memory.
+			syncMapInc(&m.errors, "other")
+		}
 	}
 
 	if res.Protocol != "" {
@@ -268,16 +319,28 @@ func (m *Monitor) Snapshot() models.Report {
 		return true
 	})
 
-	// Build time series — reuse slice backing array, extend only if needed.
-	m.bucketMu.RLock()
-	needed := len(m.secondBuckets)
+	// Build time series from the ring buffer — only the visible window.
+	m.bucketMu.Lock()
+	total := m.bucketTotal
+	ringCap := m.bucketRingCap
+	m.bucketMu.Unlock()
+
+	// +1 skips the oldest slot that may be concurrently reset by getOrCreateBucket
+	// when the ring wraps around (tests > bucketWindow seconds).
+	windowStart := total - ringCap + 1
+	if windowStart < 0 {
+		windowStart = 0
+	}
+	needed := total - windowStart
 	if cap(m.snapTimeSeries) < needed {
 		m.snapTimeSeries = make([]models.SecondStats, needed, needed+64)
 	} else {
 		m.snapTimeSeries = m.snapTimeSeries[:needed]
 	}
 
-	for i, bucket := range m.secondBuckets {
+	for i, absSecond := 0, windowStart; absSecond < total; i, absSecond = i+1, absSecond+1 {
+		bucket := m.bucketRing[absSecond%ringCap]
+
 		bucketReqs := atomic.LoadInt64(&bucket.requests)
 		bucketSucc := atomic.LoadInt64(&bucket.success)
 		bucketFail := atomic.LoadInt64(&bucket.fail)
@@ -288,7 +351,7 @@ func (m *Monitor) Snapshot() models.Report {
 			avgLatency = float64(bucketLatency) / float64(bucketReqs) / 1000.0
 		}
 
-		// Per-second histogram double-buffer swap: same pattern as global histogram.
+		// Per-second histogram double-buffer swap.
 		bucket.histMu.Lock()
 		bCurrentIdx := bucket.activeHist.Load()
 		bucket.activeHist.Store(1 - bCurrentIdx)
@@ -317,7 +380,7 @@ func (m *Monitor) Snapshot() models.Report {
 		})
 
 		m.snapTimeSeries[i] = models.SecondStats{
-			Second:      i + 1,
+			Second:      absSecond + 1,
 			Requests:    bucketReqs,
 			Success:     bucketSucc,
 			Failures:    bucketFail,
@@ -330,7 +393,6 @@ func (m *Monitor) Snapshot() models.Report {
 			StatusCodes: bucketStatusCodes,
 		}
 	}
-	m.bucketMu.RUnlock()
 
 	clear(m.snapAssertionMap)
 	m.assertionErrors.Range(func(key, value interface{}) bool {
@@ -344,9 +406,6 @@ func (m *Monitor) Snapshot() models.Report {
 		return true
 	})
 
-	// Note: snapshot maps are returned by reference and reused on the next call.
-	// This is safe because the Bubble Tea model replaces m.report on every tick
-	// before the next Snapshot() runs (single-threaded model update loop).
 	return models.Report{
 		TotalRequests:     reqs,
 		SuccessCount:      succ,
@@ -363,10 +422,10 @@ func (m *Monitor) Snapshot() models.Report {
 		P99:               p99,
 		Max:               maxLat,
 		Min:               minLat,
-		StatusCodes:       m.snapStatusMap,
-		Errors:            m.snapErrorMap,
-		AssertionErrors:   m.snapAssertionMap,
-		ProtocolCounts:    m.snapProtocolMap,
-		TimeSeriesData:    m.snapTimeSeries,
+		StatusCodes:       copyMapStringInt(m.snapStatusMap),
+		Errors:            copyMapStringInt(m.snapErrorMap),
+		AssertionErrors:   copyMapStringInt(m.snapAssertionMap),
+		ProtocolCounts:    copyMapStringInt(m.snapProtocolMap),
+		TimeSeriesData:    append([]models.SecondStats(nil), m.snapTimeSeries...),
 	}
 }

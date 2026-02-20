@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"strings"
@@ -84,6 +85,33 @@ func (e *Engine) PreflightCheck(url string, timeout time.Duration) error {
 	return nil
 }
 
+// warmConnections pre-establishes TCP/TLS connections so the first real requests
+// don't pay the full handshake cost, eliminating the cold-start latency spike.
+func (e *Engine) warmConnections(ctx context.Context, url string, count int) {
+	if url == "" || count <= 0 {
+		return
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < count; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
+			if err != nil {
+				return
+			}
+			req.Header.Set("User-Agent", "Sayl/1.0 Warmup")
+			resp, err := e.client.Do(req)
+			if err != nil {
+				return
+			}
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+		}()
+	}
+	wg.Wait()
+}
+
 // retryablePatterns holds lowercase patterns for retryable errors — allocated once at startup.
 var retryablePatterns = []string{
 	"timeout",
@@ -122,7 +150,9 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 	if cfg.H2C {
 		// HTTP/2 Cleartext (h2c) - for non-TLS HTTP/2 testing
 		roundTripper = &http2.Transport{
-			AllowHTTP: true,
+			AllowHTTP:        true,
+			MaxHeaderListSize: 16 * 1024,       // reject unexpectedly large response headers
+			WriteByteTimeout: 10 * time.Second, // prevent stalled connections from blocking workers
 			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
 				// For h2c, we dial plain TCP (no TLS)
 				return (&net.Dialer{
@@ -167,6 +197,20 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 	if e.client.Timeout == 0 {
 		e.client.Timeout = 30 * time.Second
 	}
+
+	// Pre-warm connections to avoid cold-start latency spikes in the first seconds.
+	targetURL := cfg.URL
+	if len(cfg.Steps) > 0 {
+		targetURL = cfg.Steps[0].URL
+	}
+	warmCount := cfg.Concurrency / 4
+	if warmCount < 2 {
+		warmCount = 2
+	}
+	if warmCount > 32 {
+		warmCount = 32
+	}
+	e.warmConnections(ctx, targetURL, warmCount)
 
 	// Initialize Data Feeders
 	feeders := make(map[string]*CSVFeeder)
@@ -219,6 +263,24 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 		}}
 	}
 
+	// Pre-compile all step templates so workers avoid repeated string scanning.
+	compiled := make([]compiledStep, len(steps))
+	for i, step := range steps {
+		cs := compiledStep{
+			url:     CompileTemplate(step.URL),
+			body:    CompileTemplate(step.Body),
+			headers: make(map[string]*CompiledTemplate, len(step.Headers)),
+			vars:    make(map[string]*CompiledTemplate, len(step.Variables)),
+		}
+		for k, v := range step.Headers {
+			cs.headers[k] = CompileTemplate(v)
+		}
+		for k, v := range step.Variables {
+			cs.vars[k] = CompileTemplate(v)
+		}
+		compiled[i] = cs
+	}
+
 	// Launch workers
 	for i := 0; i < cfg.Concurrency; i++ {
 		wg.Add(1)
@@ -246,9 +308,9 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 						}
 					}
 
-					// Execute scenario steps
-					for _, step := range steps {
-						result := e.executeStepWithRetry(ctx, step, session)
+					// Execute scenario steps using pre-compiled templates
+					for j, step := range steps {
+						result := e.executeCompiledStepWithRetry(ctx, step, compiled[j], session)
 
 						// Send result
 						select {
@@ -259,8 +321,7 @@ func (e *Engine) Attack(ctx context.Context, cfg models.Config, results chan<- m
 							return
 						}
 
-						// If step failed (and not ignored?), break scenario
-						// For now, any non-2xx/3xx or error stops the chain
+						// If step failed, break scenario
 						if result.Error != nil || result.Status >= 400 {
 							break
 						}
@@ -309,29 +370,31 @@ func (e *Engine) runStages(ctx context.Context, stages []models.Stage, limiter *
 	}
 }
 
-func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[string]string) models.Result {
+
+// executeCompiledStep is identical to executeStep but uses pre-compiled templates
+// to avoid repeated string scanning on every request.
+func (e *Engine) executeCompiledStep(ctx context.Context, step models.Step, cs compiledStep, session map[string]string) models.Result {
 	start := time.Now()
 
-	// 0. Pre-process Variables (Save/Persist)
-	for k, v := range step.Variables {
-		session[k] = e.vp.Process(v, session)
+	// 0. Pre-process Variables using compiled templates
+	for k, ct := range cs.vars {
+		session[k] = ct.Execute(e.vp, session)
 	}
 
-	// 1. Process Templates (URL, Body, Headers)
-	url := e.vp.Process(step.URL, session)
+	// 1. Process Templates via compiled parts (no scanning overhead)
+	url := cs.url.Execute(e.vp, session)
 	method := step.Method
-	bodyStr := e.vp.Process(step.Body, session)
+	bodyStr := cs.body.Execute(e.vp, session)
 
 	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(bodyStr))
 	if err != nil {
 		return models.Result{Timestamp: start, Latency: time.Since(start), Error: err, StepName: step.Name}
 	}
 
-	// Set default and custom headers
 	req.Header.Set("User-Agent", "Sayl/1.0")
 	req.Header.Set("Accept", "*/*")
-	for k, v := range step.Headers {
-		req.Header.Set(k, e.vp.Process(v, session))
+	for k, ct := range cs.headers {
+		req.Header.Set(k, ct.Execute(e.vp, session))
 	}
 
 	// 2. Execute Request
@@ -342,14 +405,11 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 	}
 	defer resp.Body.Close()
 
-	// Capture the actual protocol used (HTTP/1.1, HTTP/2.0, etc.)
 	protocol := resp.Proto
 
-	// 3. Read Body (for size & extraction & assertions)
-	// If we need to extract OR validate assertions, we must read the whole body.
+	// 3. Read Body
 	var bodyBytes []byte
 	var written int64
-
 	needBody := len(step.Extract) > 0 || len(step.Assertions) > 0
 	if needBody {
 		bodyBytes, err = io.ReadAll(resp.Body)
@@ -360,29 +420,21 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 
 	// 4. Extract Variables
 	if err == nil && len(step.Extract) > 0 && len(bodyBytes) > 0 {
-		// Use gjson for fast extraction
-
 		for varName, path := range step.Extract {
-			// path format: "json:data.token" or just "data.token"
-			// New support for "header:Header-Name"
 			if strings.HasPrefix(path, "header:") {
 				headerName := strings.TrimPrefix(path, "header:")
-				val := resp.Header.Get(headerName)
-				if val != "" {
+				if val := resp.Header.Get(headerName); val != "" {
 					session[varName] = val
 				}
 				continue
 			}
-
-			// Default: JSON extraction from body
-			val := gjson.GetBytes(bodyBytes, path).String()
-			if val != "" {
+			if val := gjson.GetBytes(bodyBytes, path).String(); val != "" {
 				session[varName] = val
 			}
 		}
 	}
 
-	// 5. Validate Assertions (NEW!)
+	// 5. Validate Assertions
 	var assertionErr error
 	if len(step.Assertions) > 0 && len(bodyBytes) > 0 {
 		assertionErr = validator.ValidateAssertions(bodyBytes, step.Assertions)
@@ -393,38 +445,32 @@ func (e *Engine) executeStep(ctx context.Context, step models.Step, session map[
 		Latency:        latency,
 		Status:         resp.StatusCode,
 		Bytes:          written,
-		AssertionError: assertionErr, // Separate from network errors!
+		AssertionError: assertionErr,
 		StepName:       step.Name,
 		Protocol:       protocol,
 	}
 }
 
-// executeStepWithRetry wraps executeStep with automatic retry logic for transient errors
-func (e *Engine) executeStepWithRetry(ctx context.Context, step models.Step, session map[string]string) models.Result {
+// executeCompiledStepWithRetry wraps executeCompiledStep with the same retry logic.
+func (e *Engine) executeCompiledStepWithRetry(ctx context.Context, step models.Step, cs compiledStep, session map[string]string) models.Result {
 	var result models.Result
 
 	for attempt := 0; attempt <= e.retry.MaxRetries; attempt++ {
-		// Check if context is cancelled before attempt
 		select {
 		case <-ctx.Done():
-			return models.Result{
-				Timestamp: time.Now(),
-				Error:     ctx.Err(),
-			}
+			return models.Result{Timestamp: time.Now(), Error: ctx.Err()}
 		default:
 		}
 
-		result = e.executeStep(ctx, step, session)
+		result = e.executeCompiledStep(ctx, step, cs, session)
 
-		// If successful or non-retryable error, return immediately
 		if result.Error == nil || !isRetryableError(result.Error) {
 			return result
 		}
 
-		// Don't sleep on the last attempt
 		if attempt < e.retry.MaxRetries {
-			// Exponential backoff: delay * 2^attempt
 			backoff := e.retry.RetryDelay * time.Duration(1<<attempt)
+			backoff = time.Duration(float64(backoff) * (0.75 + rand.Float64()*0.5))
 			select {
 			case <-ctx.Done():
 				return result
@@ -435,3 +481,4 @@ func (e *Engine) executeStepWithRetry(ctx context.Context, step models.Step, ses
 
 	return result
 }
+

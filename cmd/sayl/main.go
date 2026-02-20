@@ -87,8 +87,11 @@ func main() {
 		}
 		cfg = loadedCfg
 	} else {
-		// Initialize empty config if no file
-		cfg = &models.Config{}
+		// Initialize config with sensible defaults if no file provided
+		cfg = &models.Config{
+			HTTP2:     true,
+			KeepAlive: true,
+		}
 	}
 
 	// 2. Override with Flags (Precedence: Flag > File)
